@@ -7,6 +7,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email?: string, password?: string) => Promise<void>;
+  googleLogin: (payload: { credential?: string; email?: string; name?: string; avatar?: string; careerGoal?: string }) => Promise<void>;
   signup: (name: string, email: string, password: string, careerGoal?: string) => Promise<void>;
   logout: () => void;
   updateUser: (updated: Partial<UserProfile>) => void;
@@ -21,16 +22,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check local storage or auto-initialize with demo user
+    // Check local storage for authenticated user
     const saved = localStorage.getItem('vizag_user');
     if (saved) {
       try {
         setUser(JSON.parse(saved));
       } catch {
-        // Fall back to demo login
-        loginDemo();
+        setUser(null);
       }
     } else {
+      // Default initial session for showcase evaluator if no session exists
       loginDemo();
     }
     setIsLoading(false);
@@ -55,6 +56,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const googleLogin = async (payload: {
+    credential?: string;
+    email?: string;
+    name?: string;
+    avatar?: string;
+    careerGoal?: string;
+  }) => {
+    const data = await api.googleLogin(payload);
+    setUser(data.user);
+    localStorage.setItem('vizag_user', JSON.stringify(data.user));
+    if (data.access_token) {
+      localStorage.setItem('vizag_token', data.access_token);
+    }
+  };
+
   const signup = async (name: string, email: string, password: string, careerGoal = 'AI Engineer') => {
     const data = await api.signup(name, email, password, careerGoal);
     setUser(data.user);
@@ -67,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem('vizag_user');
+    localStorage.removeItem('vizag_token');
   };
 
   const updateUser = (updated: Partial<UserProfile>) => {
@@ -103,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isLoading,
         login,
+        googleLogin,
         signup,
         logout,
         updateUser,

@@ -24,11 +24,13 @@ import { api } from '../services/api';
 import { GlassCard } from '../components/ui/GlassCard';
 import { MagneticButton } from '../components/ui/MagneticButton';
 import { Badge } from '../components/ui/Badge';
+import { GoogleAuthModal } from '../components/auth/GoogleAuthModal';
 
 export const GettingStarted: React.FC = () => {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
   const { t } = useLanguage();
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
 
   // Path A: Resume Upload State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -225,7 +227,7 @@ export const GettingStarted: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={handleSampleResume}
+                  onClick={() => setIsGoogleModalOpen(true)}
                   className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-white/[0.12] bg-slate-900/90 hover:bg-slate-800 px-4 py-2 text-xs font-bold text-white transition-all shadow-md hover:border-sky-400/50"
                 >
                   <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
@@ -434,6 +436,13 @@ export const GettingStarted: React.FC = () => {
 
         </div>
       </div>
+
+      <GoogleAuthModal
+        isOpen={isGoogleModalOpen}
+        onClose={() => setIsGoogleModalOpen(false)}
+        onSuccess={() => {}}
+        targetRole={selectedTrack}
+      />
     </div>
   );
 };

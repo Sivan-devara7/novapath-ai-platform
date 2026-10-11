@@ -128,21 +128,32 @@ export const Profile: React.FC = () => {
             <div>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-2 border-sky-400/40 bg-slate-800 text-2xl font-black text-sky-300 shadow-neon-blue">
-                    {user?.name.slice(0, 2).toUpperCase() || 'AS'}
+                  <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-2 border-sky-400/40 bg-slate-800 text-2xl font-black text-sky-300 shadow-neon-blue overflow-hidden">
+                    {user?.avatar ? (
+                      <img src={user.avatar} alt={user?.name || 'User'} className="h-full w-full object-cover" />
+                    ) : (
+                      <span>{user?.name ? user.name.slice(0, 2).toUpperCase() : 'ME'}</span>
+                    )}
                     <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-slate-950 shadow-md">
                       <CheckCircle2 className="h-4 w-4" />
                     </div>
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">{user?.name || 'Aarav Sharma'}</h2>
+                    <h2 className="text-xl font-bold text-white">{user?.name || 'Logged-In Student'}</h2>
                     <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
                       <Mail className="h-3 w-3" />
-                      {user?.email || 'aarav.sharma@vizag.edu'}
+                      {user?.email || 'student@novapath.ai'}
                     </p>
-                    <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-sky-400/30 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-300">
-                      Target: {careerGoal}
-                    </span>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-sky-400/30 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-300">
+                        Target: {careerGoal}
+                      </span>
+                      {user?.email?.includes('gmail') && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                          Google SSO
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -153,14 +164,14 @@ export const Profile: React.FC = () => {
                   <span className="text-slate-400 block text-[11px]">Active Streak</span>
                   <span className="text-sm font-bold text-amber-300 flex items-center justify-center gap-0.5 mt-0.5">
                     <Flame className="h-3.5 w-3.5 fill-amber-400" />
-                    {user?.streak || 14}d
+                    {user?.streak || 1}d
                   </span>
                 </div>
                 <div className="border-x border-white/[0.06]">
                   <span className="text-slate-400 block text-[11px]">Mastery XP</span>
                   <span className="text-sm font-bold text-violet-300 flex items-center justify-center gap-0.5 mt-0.5">
                     <Zap className="h-3.5 w-3.5 fill-violet-400" />
-                    {user?.points || 860}
+                    {user?.points || 100}
                   </span>
                 </div>
                 <div>
@@ -171,19 +182,25 @@ export const Profile: React.FC = () => {
                 </div>
               </div>
 
-              {/* University & Degree Information */}
+              {/* Account & Academic Details */}
               <div className="mt-5 space-y-2.5 text-xs">
                 <div className="flex justify-between text-slate-400">
-                  <span>Institution:</span>
-                  <strong className="text-slate-200">IIIT Vizag / Andhra University</strong>
+                  <span>Student Identifier:</span>
+                  <strong className="text-sky-300 font-mono text-[11px]">{user?.id || 'usr-active'}</strong>
                 </div>
                 <div className="flex justify-between text-slate-400">
-                  <span>Degree & Track:</span>
-                  <strong className="text-slate-200">B.Tech Computer Science</strong>
+                  <span>Account Status:</span>
+                  <strong className="text-emerald-400">Verified & Active</strong>
                 </div>
                 <div className="flex justify-between text-slate-400">
-                  <span>Academic CGPA:</span>
-                  <strong className="text-emerald-400">8.9 / 10.0 (Verified OCR)</strong>
+                  <span>Authentication Mode:</span>
+                  <strong className="text-slate-200">
+                    {user?.email?.includes('gmail') ? 'Google Federated SSO' : 'University SSO / Direct'}
+                  </strong>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Academic Track:</span>
+                  <strong className="text-slate-200">{careerGoal} Specialization</strong>
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>Modules Cleared:</span>

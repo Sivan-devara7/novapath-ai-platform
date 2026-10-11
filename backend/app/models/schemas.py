@@ -13,6 +13,14 @@ class UserLogin(BaseModel):
     email: str
     password: str
 
+class GoogleLoginRequest(BaseModel):
+    credential: Optional[str] = None
+    email: Optional[str] = None
+    name: Optional[str] = None
+    avatar: Optional[str] = None
+    google_id: Optional[str] = None
+    career_goal: Optional[str] = "AI Engineer"
+
 class UserProfile(UserBase):
     id: str
     role: str = "student"

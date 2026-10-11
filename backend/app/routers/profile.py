@@ -5,18 +5,14 @@ from sqlalchemy.orm import Session
 from ..models.schemas import UserProfile
 from ..models.db_models import User
 from ..core.database import get_db
+from ..core.auth_dependency import get_current_user
 from ..services.document_service import document_service
 from ..services.ats_service import ats_service
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
-DEMO_USER_ID = "usr-aarav-sharma"
-
 @router.get("/me", response_model=UserProfile)
-async def get_my_profile(db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == DEMO_USER_ID).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+async def get_my_profile(user: User = Depends(get_current_user)):
     return UserProfile(**user.to_profile_dict())
 
 @router.post("/upload-resume")
