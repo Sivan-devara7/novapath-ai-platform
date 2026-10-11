@@ -15,68 +15,8 @@ import {
 
 const API_BASE = '/api';
 
-export function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem('vizag_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 export const api = {
   // Auth
-  async googleLogin(payload: {
-    credential?: string;
-    email?: string;
-    name?: string;
-    avatar?: string;
-    careerGoal?: string;
-  }): Promise<{ user: UserProfile; access_token: string }> {
-    try {
-      const res = await fetch(`${API_BASE}/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          credential: payload.credential,
-          email: payload.email,
-          name: payload.name,
-          avatar: payload.avatar,
-          career_goal: payload.careerGoal || 'AI Engineer'
-        })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Google authentication failed' }));
-        throw new Error(err.detail || 'Google authentication failed');
-      }
-      return await res.json();
-    } catch (e: any) {
-      // In case backend is offline, generate a valid client session for this Google user
-      const userEmail = payload.email || 'student@gmail.com';
-      const userName = payload.name || userEmail.split('@')[0].replace('.', ' ').replace(/\b\w/g, c => c.toUpperCase());
-      const fallbackUser: UserProfile = {
-        id: `usr-g-${Math.abs(userEmail.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0)) % 100000}`,
-        name: userName,
-        email: userEmail,
-        role: 'student',
-        career_goal: payload.careerGoal || 'AI Engineer',
-        avatar: payload.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(userEmail)}`,
-        streak: 1,
-        points: 100,
-        mastery_overall: 30,
-        radar_data: [
-          { subject: 'Deep Learning', A: 50, fullMark: 100 },
-          { subject: 'System Design', A: 40, fullMark: 100 },
-          { subject: 'Algorithms', A: 60, fullMark: 100 },
-          { subject: 'MLOps', A: 30, fullMark: 100 },
-          { subject: 'Cloud & Infra', A: 35, fullMark: 100 },
-          { subject: 'Applied RAG', A: 35, fullMark: 100 },
-        ],
-        verified_skills: ['Python', 'Google Cloud AI']
-      };
-      return {
-        access_token: `jwt-token-${fallbackUser.id}`,
-        user: fallbackUser
-      };
-    }
-  },
-
   async login(email?: string, password?: string): Promise<{ user: UserProfile; access_token: string }> {
     try {
       let res: Response;
@@ -507,21 +447,13 @@ export const api = {
     const url = courseId
       ? `${API_BASE}/modules/?course_id=${encodeURIComponent(courseId)}&_t=${Date.now()}`
       : `${API_BASE}/modules/?_t=${Date.now()}`;
-    const res = await fetch(url, {
-      headers: { ...authHeaders() }
-    });
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch modules');
-    const data = await res.json();
-    return {
-      ...data,
-      modules: (data.modules || []).sort((a: CourseModule, b: CourseModule) => (a.order_index || 0) - (b.order_index || 0))
-    };
+    return await res.json();
   },
 
   async getModuleDetail(moduleId: string): Promise<CourseModule> {
-    const res = await fetch(`${API_BASE}/modules/${moduleId}?_t=${Date.now()}`, {
-      headers: { ...authHeaders() }
-    });
+    const res = await fetch(`${API_BASE}/modules/${moduleId}?_t=${Date.now()}`);
     if (res.status === 403) {
       const err = await res.json();
       const error = new Error(err.detail || 'Module is locked');
@@ -539,9 +471,7 @@ export const api = {
     pass_threshold_required: number;
     questions: QuizQuestionItem[];
   }> {
-    const res = await fetch(`${API_BASE}/modules/${moduleId}/quiz/start?_t=${Date.now()}`, {
-      headers: { ...authHeaders() }
-    });
+    const res = await fetch(`${API_BASE}/modules/${moduleId}/quiz/start?_t=${Date.now()}`);
     if (res.status === 403) {
       const err = await res.json();
       const error = new Error(err.detail || 'Module is locked');

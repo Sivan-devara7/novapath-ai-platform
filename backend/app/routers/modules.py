@@ -8,12 +8,13 @@ from ..config import settings
 from ..models.db_models import User, Module, UserModuleProgress, QuizAttempt, Course, ResumeAnalysis
 from ..models.schemas import LessonContent, GenerateLessonRequest
 from ..core.database import get_db
-from ..core.auth_dependency import get_current_user
 from ..services.module_quiz_service import module_quiz_service
 from ..services.rag_service import rag_service
 from ..services.llm_service import llm_service
 
 router = APIRouter(prefix="/modules", tags=["modules"])
+
+DEMO_USER_ID = "usr-aarav-sharma"
 
 class ModuleQuizSubmitRequest(BaseModel):
     attempt_id: str
@@ -36,15 +37,15 @@ async def list_courses(db: Session = Depends(get_db)):
     ]
 
 @router.get("/")
-async def list_modules(
-    course_id: Optional[str] = None, 
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
+async def list_modules(course_id: Optional[str] = None, db: Session = Depends(get_db)):
     """
     Returns modules for the requested course (or user's career goal).
-    Modules are returned in strict sequential order with accurate server-side gating status.
+    Dynamically prioritizes and adapts module sequence based on the user's specific ATS skill gaps.
     """
+    user = db.query(User).filter(User.id == DEMO_USER_ID).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     # Resolve course_id from param or user career goal
     effective_course_id = course_id
     if not effective_course_id:
@@ -106,8 +107,30 @@ async def list_modules(
         )
         results.append(m_dict)
 
-    # Strictly sort by order_index so module cards are displayed in sequential order
-    results.sort(key=lambda m: m.get("order_index", 1))
+    # Adaptive Sorting: Modules bridging critical gaps are prioritized to the front of the learning path
+    # while maintaining completion state
+    def adaptive_sort_key(m):
+        # 0: Gap-targeted & not yet passed (Highest Priority)
+        # 1: Standard available / in-progress
+        # 2: Locked standard
+        # 3: Completed / passed
+        is_targeted = m.get("is_gap_targeted", False)
+        st = m.get("status", "locked")
+        if st == "passed":
+            rank = 3
+        elif is_targeted:
+            rank = 0
+        elif st in ("available", "in_progress"):
+            rank = 1
+        else:
+            rank = 2
+        return (rank, m.get("order_index", 1))
+
+    results.sort(key=adaptive_sort_key)
+
+    # Ensure the top-most module is accessible (unlocked)
+    if results and results[0]["status"] == "locked":
+        results[0]["status"] = "available"
 
     return {
         "course_id": effective_course_id,
@@ -117,15 +140,15 @@ async def list_modules(
     }
 
 @router.get("/{module_id}")
-async def get_module_detail(
-    module_id: str, 
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
+async def get_module_detail(module_id: str, db: Session = Depends(get_db)):
     """
     Returns full module detail including lessons, resources, and quiz metadata.
     Refuses access with 403 if the module is locked.
     """
+    user = db.query(User).filter(User.id == DEMO_USER_ID).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     module, progress = module_quiz_service.get_module_with_access_check(db, user, module_id)
 
     # Get grounded resources for this module from RAG service
@@ -159,29 +182,32 @@ async def get_module_detail(
     return m_dict
 
 @router.get("/{module_id}/quiz/start")
-async def start_module_quiz(
-    module_id: str, 
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
+async def start_module_quiz(module_id: str, db: Session = Depends(get_db)):
     """
     Starts a module quiz: draws 15 questions from the validated module bank.
     Refuses access with 403 if the module is locked.
     """
+    user = db.query(User).filter(User.id == DEMO_USER_ID).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     return module_quiz_service.sample_module_quiz(db, user, module_id)
 
 @router.post("/{module_id}/quiz/submit")
 async def submit_module_quiz(
     module_id: str,
     payload: ModuleQuizSubmitRequest,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """
     Server-side scoring of 15 questions.
     Enforces 65% pass mark (10/15 correct answers required).
     Unlocks next module on pass. Awards idempotent XP.
     """
+    user = db.query(User).filter(User.id == DEMO_USER_ID).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     return module_quiz_service.evaluate_module_quiz(
         db=db,
         user=user,
@@ -192,12 +218,12 @@ async def submit_module_quiz(
     )
 
 @router.get("/{module_id}/quiz/history")
-async def get_quiz_history(
-    module_id: str, 
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
+async def get_quiz_history(module_id: str, db: Session = Depends(get_db)):
     """Returns past attempts for this module."""
+    user = db.query(User).filter(User.id == DEMO_USER_ID).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     attempts = db.query(QuizAttempt).filter(
         QuizAttempt.user_id == user.id,
         QuizAttempt.module_id == module_id
@@ -220,14 +246,17 @@ async def get_quiz_history(
 async def generate_module_lesson(
     module_id: str,
     payload: GenerateLessonRequest,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """
     Generates an adaptive interactive lesson using OmniRoute LLM gateway.
     Adapts explanation depth based on student entry level (scratch / basics vs advanced).
     Provides structured runnable code, analogies, common pitfalls, and hands-on exercises.
     """
+    user = db.query(User).filter(User.id == DEMO_USER_ID).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     module, progress = module_quiz_service.get_module_with_access_check(db, user, module_id)
 
     topic = payload.topic_name.strip()

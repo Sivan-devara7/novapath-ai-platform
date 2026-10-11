@@ -71,7 +71,7 @@ export const Dashboard: React.FC = () => {
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-                Welcome back, {user?.name ? user.name.split(' ')[0] : 'Student'}
+                Welcome back, {user?.name.split(' ')[0] || 'Aarav'}
               </h1>
               <Badge variant="verified">Profile Verified</Badge>
             </div>
@@ -249,7 +249,7 @@ export const Dashboard: React.FC = () => {
                     <PolarAngleAxis dataKey="subject" stroke="#94a3b8" fontSize={10} tickLine={false} />
                     <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#475569" fontSize={9} />
                     <Radar
-                      name={user?.name || 'Student'}
+                      name="Aarav Sharma"
                       dataKey="A"
                       stroke="#38bdf8"
                       fill="#38bdf8"

@@ -17,7 +17,6 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { GlassCard } from '../components/ui/GlassCard';
 import { MagneticButton } from '../components/ui/MagneticButton';
-import { GoogleAuthModal } from '../components/auth/GoogleAuthModal';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -31,7 +30,6 @@ export const Login: React.FC = () => {
   const [careerGoal, setCareerGoal] = useState('AI Engineer');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,7 +125,7 @@ export const Login: React.FC = () => {
           <div className="mt-5">
             <button
               type="button"
-              onClick={() => setIsGoogleModalOpen(true)}
+              onClick={handleDemoQuickLogin}
               disabled={loading}
               className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-white/[0.12] bg-slate-900/90 hover:bg-slate-800 px-4 py-2.5 text-xs font-bold text-white transition-all shadow-md hover:border-sky-400/50"
             >
@@ -157,12 +155,19 @@ export const Login: React.FC = () => {
           <div className="relative my-4 flex items-center justify-center">
             <div className="w-full border-t border-white/[0.08]" />
             <span className="absolute bg-slate-900 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              or quick evaluator access
+              or continue with email
             </span>
           </div>
 
-          {/* Demo Quick-Access */}
+          {/* Demo Quick-Access for Evaluators */}
           <div className="rounded-2xl border border-sky-500/25 bg-gradient-to-r from-sky-950/40 to-indigo-950/30 p-3.5 text-center">
+            <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-sky-300 mb-1">
+              <Sparkles className="h-3.5 w-3.5 text-sky-400" />
+              <span>Hackathon Judge Quick-Access</span>
+            </div>
+            <p className="text-[11px] text-slate-300 mb-2.5">
+              Launch directly as pre-seeded candidate <strong>Aarav Sharma</strong>
+            </p>
             <MagneticButton
               variant="primary"
               onClick={handleDemoQuickLogin}
@@ -170,7 +175,7 @@ export const Login: React.FC = () => {
               className="w-full justify-center text-xs py-2 shadow-neon-blue"
             >
               <Play className="h-3.5 w-3.5 fill-white" />
-              <span>Instant Evaluator Demo Access</span>
+              <span>1-Click Instant Demo Login</span>
             </MagneticButton>
           </div>
 
@@ -318,13 +323,6 @@ export const Login: React.FC = () => {
           </p>
         </GlassCard>
       </div>
-
-      <GoogleAuthModal
-        isOpen={isGoogleModalOpen}
-        onClose={() => setIsGoogleModalOpen(false)}
-        onSuccess={() => navigate('/getting-started')}
-        targetRole={careerGoal}
-      />
     </div>
   );
 };

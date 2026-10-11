@@ -7,30 +7,26 @@ from sqlalchemy.orm import Session
 from ..models.schemas import SkillGraphResponse
 from ..models.db_models import User, UserModuleProgress, XPEvent
 from ..core.database import get_db
-from ..core.auth_dependency import get_current_user
 from ..services.roadmap_service import roadmap_service
 
 router = APIRouter(prefix="/roadmap", tags=["roadmap"])
+
+DEMO_USER_ID = "usr-aarav-sharma"
 
 class GenerateRoadmapRequest(BaseModel):
     career_goal: str
     verified_skills: Optional[List[str]] = None
 
 @router.get("/graph", response_model=SkillGraphResponse)
-async def get_roadmap_graph(
-    career_goal: Optional[str] = None, 
-    user: User = Depends(get_current_user)
-):
+async def get_roadmap_graph(career_goal: Optional[str] = None, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == DEMO_USER_ID).first()
     verified_skills = json.loads(user.verified_skills_json) if user and user.verified_skills_json else []
     goal = career_goal or (user.career_goal if user else "AI Engineer")
     return roadmap_service.get_roadmap(goal, verified_skills)
 
 @router.post("/generate", response_model=SkillGraphResponse)
-async def generate_roadmap(
-    payload: GenerateRoadmapRequest, 
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
+async def generate_roadmap(payload: GenerateRoadmapRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == DEMO_USER_ID).first()
     if user:
         user.career_goal = payload.career_goal
         db.commit()
@@ -38,11 +34,10 @@ async def generate_roadmap(
     return roadmap_service.get_roadmap(payload.career_goal, verified_skills)
 
 @router.post("/complete-node/{node_id}")
-async def complete_node(
-    node_id: str, 
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
+async def complete_node(node_id: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == DEMO_USER_ID).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
         
     user.total_xp += 150
     user.streak += 1

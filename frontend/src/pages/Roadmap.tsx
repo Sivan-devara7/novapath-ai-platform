@@ -69,8 +69,7 @@ export const Roadmap: React.FC = () => {
         api.getPlacementStatus()
       ]);
       if (modsRes.status === 'fulfilled') {
-        const sorted = (modsRes.value.modules || []).slice().sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
-        setModules(sorted);
+        setModules(modsRes.value.modules);
       }
       if (placeRes.status === 'fulfilled') {
         setPlacementStatus(placeRes.value);
@@ -370,8 +369,8 @@ export const Roadmap: React.FC = () => {
 
                     <div className="flex items-center gap-1 font-bold">
                       {isLocked ? (
-                        <span className="flex items-center gap-1 text-slate-400 text-[11px]">
-                          <Lock className="h-3.5 w-3.5 text-rose-400" /> Locked • Req. #{mod.order_index - 1}
+                        <span className="flex items-center gap-1 text-slate-500">
+                          <Lock className="h-3.5 w-3.5" /> Locked
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-sky-400 group-hover:translate-x-0.5 transition-transform">
