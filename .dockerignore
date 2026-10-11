@@ -8,3 +8,9 @@ backend/*/__pycache__
 .gemini
 *.pyc
 .env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+*.env.local

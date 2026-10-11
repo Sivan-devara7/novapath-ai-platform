@@ -12,6 +12,8 @@ import {
   TrendingUp,
   Target
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import { GlassCard } from '../components/ui/GlassCard';
 import { MagneticButton } from '../components/ui/MagneticButton';
@@ -20,16 +22,34 @@ import { SkeletonLoader } from '../components/ui/SkeletonLoader';
 import { RecommendationItem } from '../types';
 
 export const Recommendations: React.FC = () => {
+  const { user } = useAuth();
+  const { t } = useLanguage();
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('all');
+  const [selectedTrack, setSelectedTrack] = useState<string>(() => {
+    const goal = (user?.career_goal || '').toLowerCase();
+    if (goal.includes('data')) return 'Data Engineer';
+    if (goal.includes('cyber') || goal.includes('security')) return 'Cybersecurity Analyst';
+    return 'AI Engineer';
+  });
+  const [selectedLevel, setSelectedLevel] = useState<string>(() => user?.placement_level || 'Intermediate');
+
+  const fetchRecs = async (track = selectedTrack, level = selectedLevel) => {
+    setLoading(true);
+    try {
+      const data = await api.getRecommendations(track, level);
+      setRecommendations(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    api.getRecommendations().then((data) => {
-      setRecommendations(data);
-      setLoading(false);
-    });
-  }, []);
+    fetchRecs(selectedTrack, selectedLevel);
+  }, [selectedTrack, selectedLevel]);
 
   const filtered = filterType === 'all'
     ? recommendations
@@ -53,32 +73,52 @@ export const Recommendations: React.FC = () => {
               <span className="text-xs text-[var(--text-muted)]">Zero-hallucination career intelligence</span>
             </div>
             <h1 className="mt-2 text-2xl sm:text-4xl font-extrabold text-[var(--text-heading)]">
-              AI-Curated <span className="text-gradient">Opportunities</span>
+              {t('recom_title', 'Personalized Project & Career Recommendations')}
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-[var(--text-secondary)]">
-              Personalized capstones, verified credentials, and internships selected to eliminate your detected resume gaps.
+              {t('recom_subtitle', 'Curated projects, internships, and capstones matched to your track and skill level')}
             </p>
           </div>
 
-          {/* Filter Tabs */}
-          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
+          {/* Track & Opportunity Type Switchers */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5">
+            {/* Track Switcher */}
+            <div className="flex rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-1">
+              {['AI Engineer', 'Data Engineer', 'Cybersecurity Analyst'].map((track) => (
                 <button
-                  key={tab.id}
-                  onClick={() => setFilterType(tab.id)}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                    filterType === tab.id
-                      ? 'bg-[image:var(--accent-gradient)] text-white shadow-[0_0_15px_var(--glow-primary)]'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                  key={track}
+                  onClick={() => setSelectedTrack(track)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                    selectedTrack === track
+                      ? 'bg-[image:var(--accent-gradient)] text-white shadow-neon-blue'
+                      : 'text-[var(--text-muted)] hover:text-white'
                   }`}
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  {tab.label}
+                  {track}
                 </button>
-              );
-            })}
+              ))}
+            </div>
+
+            {/* Opportunity Type Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-1">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setFilterType(tab.id)}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                      filterType === tab.id
+                        ? 'bg-[image:var(--accent-gradient)] text-white shadow-[0_0_15px_var(--glow-primary)]'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

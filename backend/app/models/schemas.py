@@ -89,6 +89,8 @@ class ResumeAnalysisResponse(BaseModel):
     formatting_score: int
     skills_match_score: int
     impact_score: int
+    role_fit_score: Optional[float] = 0.0
+    section_score: Optional[float] = 0.0
     extracted_skills: List[str]
     missing_skills: List[str]
     matched_skills: List[str]
@@ -96,6 +98,12 @@ class ResumeAnalysisResponse(BaseModel):
     quantifiable_metrics_count: int
     summary_critique: str
     actionable_recommendations: List[Dict[str, str]]
+    score_breakdown: Optional[Dict[str, Any]] = None
+    top_contributing_features: Optional[List[Dict[str, Any]]] = None
+    deductions: Optional[List[Dict[str, Any]]] = None
+    bullet_improvements: Optional[List[Dict[str, str]]] = None
+    target_role: Optional[str] = "AI Engineer"
+    raw_text_hash: Optional[str] = None
 
 class RecommendationItem(BaseModel):
     id: str
@@ -109,3 +117,42 @@ class RecommendationItem(BaseModel):
     prerequisites: List[str] = []
     tags: List[str] = []
     action_url: str = "#"
+
+class LessonContent(BaseModel):
+    title: str
+    level_badge: str
+    estimated_read_time: str
+    analogy: str
+    core_explanation: str
+    code_example: Optional[str] = None
+    common_mistakes: List[str] = []
+    practice_exercise: str
+    practice_solution: str
+    ai_tutor_tip: str
+
+class GenerateLessonRequest(BaseModel):
+    topic_index: int = 0
+    topic_name: str
+    level: str = "scratch"  # "scratch", "intermediate", "advanced"
+
+class BridgeMilestone(BaseModel):
+    step: int
+    title: str
+    target_skill: str
+    description: str
+    estimated_hours: int
+    project: str
+
+class BridgeRoadmapResponse(BaseModel):
+    target_role: str
+    current_ats_score: int
+    projected_ats_score: int
+    estimated_weeks: str
+    summary: str
+    milestones: List[BridgeMilestone]
+
+class GenerateBridgeRoadmapRequest(BaseModel):
+    target_role: str
+    current_ats_score: int
+    missing_skills: List[str]
+    matched_skills: List[str]

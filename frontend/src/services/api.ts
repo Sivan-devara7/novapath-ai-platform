@@ -5,19 +5,37 @@ import {
   AssessmentQuestion,
   AssessmentFeedback,
   ResumeAnalysisResponse,
-  RecommendationItem
+  RecommendationItem,
+  CourseModule,
+  QuizQuestionItem,
+  QuizSubmissionResponse,
+  LessonContent,
+  BridgeRoadmapResponse
 } from '../types';
 
 const API_BASE = '/api';
 
 export const api = {
   // Auth
-  async login(): Promise<{ user: UserProfile; access_token: string }> {
+  async login(email?: string, password?: string): Promise<{ user: UserProfile; access_token: string }> {
     try {
-      const res = await fetch(`${API_BASE}/auth/demo-login`, { method: 'POST' });
-      if (!res.ok) throw new Error('API request failed');
+      let res: Response;
+      if (email && password) {
+        res = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+      } else {
+        res = await fetch(`${API_BASE}/auth/demo-login`, { method: 'POST' });
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Authentication failed' }));
+        throw new Error(err.detail || 'Authentication failed');
+      }
       return await res.json();
-    } catch {
+    } catch (e: any) {
+      if (email && password) throw e;
       return {
         access_token: 'mock-jwt-token-fallback',
         user: {
@@ -42,6 +60,25 @@ export const api = {
         }
       };
     }
+  },
+
+  async signup(name: string, email: string, password: string, careerGoal = 'AI Engineer'): Promise<{ user: UserProfile; access_token: string }> {
+    const res = await fetch(`${API_BASE}/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        role: 'student',
+        career_goal: careerGoal
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Account registration failed' }));
+      throw new Error(err.detail || 'Account registration failed');
+    }
+    return await res.json();
   },
 
   // Roadmap & Skill Graph
@@ -311,10 +348,42 @@ export const api = {
     }
   },
 
+  async uploadResume(file: File, targetRole = 'AI Engineer'): Promise<ResumeAnalysisResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('target_role', targetRole);
+    const res = await fetch(`${API_BASE}/resume/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+      throw new Error(err.detail || 'Upload failed');
+    }
+    return await res.json();
+  },
+
+  async addSkillToRoadmap(skill: string, targetRole = 'AI Engineer'): Promise<{ success: boolean; message: string; module_id?: string }> {
+    const res = await fetch(`${API_BASE}/resume/add-to-roadmap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ skill, target_role: targetRole })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to add to roadmap' }));
+      throw new Error(err.detail || 'Failed to add to roadmap');
+    }
+    return await res.json();
+  },
+
   // Recommendations
-  async getRecommendations(): Promise<RecommendationItem[]> {
+  async getRecommendations(track?: string, level?: string): Promise<RecommendationItem[]> {
     try {
-      const res = await fetch(`${API_BASE}/recommendations/`);
+      const params = new URLSearchParams();
+      if (track) params.append('track', track);
+      if (level) params.append('level', level);
+      params.append('_t', Date.now().toString());
+      const res = await fetch(`${API_BASE}/recommendations/?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch recommendations');
       return await res.json();
     } catch {
@@ -360,5 +429,160 @@ export const api = {
         }
       ];
     }
+  },
+
+  // Course Modules & Gating
+  async getCourses(): Promise<Array<{ id: string; title: string; description: string; target_role: string; modules_count: number }>> {
+    const res = await fetch(`${API_BASE}/modules/courses?_t=${Date.now()}`);
+    if (!res.ok) throw new Error('Failed to fetch courses');
+    return await res.json();
+  },
+
+  async getModules(courseId?: string): Promise<{
+    course_id: string;
+    total_modules: number;
+    user_skill_gaps_addressed?: number;
+    modules: CourseModule[];
+  }> {
+    const url = courseId
+      ? `${API_BASE}/modules/?course_id=${encodeURIComponent(courseId)}&_t=${Date.now()}`
+      : `${API_BASE}/modules/?_t=${Date.now()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to fetch modules');
+    return await res.json();
+  },
+
+  async getModuleDetail(moduleId: string): Promise<CourseModule> {
+    const res = await fetch(`${API_BASE}/modules/${moduleId}?_t=${Date.now()}`);
+    if (res.status === 403) {
+      const err = await res.json();
+      const error = new Error(err.detail || 'Module is locked');
+      (error as any).status = 403;
+      throw error;
+    }
+    if (!res.ok) throw new Error('Failed to load module');
+    return await res.json();
+  },
+
+  async startModuleQuiz(moduleId: string): Promise<{
+    attempt_id: string;
+    module_id: string;
+    total_questions: number;
+    pass_threshold_required: number;
+    questions: QuizQuestionItem[];
+  }> {
+    const res = await fetch(`${API_BASE}/modules/${moduleId}/quiz/start?_t=${Date.now()}`);
+    if (res.status === 403) {
+      const err = await res.json();
+      const error = new Error(err.detail || 'Module is locked');
+      (error as any).status = 403;
+      throw error;
+    }
+    if (!res.ok) throw new Error('Failed to start module quiz');
+    return await res.json();
+  },
+
+  async submitModuleQuiz(
+    moduleId: string,
+    payload: { attempt_id: string; question_ids: string[]; answers: Record<string, number> }
+  ): Promise<QuizSubmissionResponse> {
+    const res = await fetch(`${API_BASE}/modules/${moduleId}/quiz/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Failed to submit quiz');
+    return await res.json();
+  },
+
+  async getPlacementStatus(): Promise<{
+    has_taken_placement: boolean;
+    level: string | null;
+    score_percentage: number | null;
+    can_retake: boolean;
+    cooldown_message: string | null;
+  }> {
+    const res = await fetch(`${API_BASE}/assessment/placement/status?_t=${Date.now()}`);
+    if (!res.ok) throw new Error('Failed to fetch placement status');
+    return await res.json();
+  },
+
+  async startPlacementQuiz(force = false): Promise<{
+    quiz_type: string;
+    total_questions: number;
+    questions: QuizQuestionItem[];
+  }> {
+    const res = await fetch(`${API_BASE}/assessment/placement/start?force=${force}&_t=${Date.now()}`);
+    if (res.status === 403) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Placement quiz on cooldown');
+    }
+    if (!res.ok) throw new Error('Failed to start placement quiz');
+    return await res.json();
+  },
+
+  async submitPlacementQuiz(payload: {
+    question_ids: string[];
+    answers: Record<string, number>;
+  }): Promise<QuizSubmissionResponse> {
+    const res = await fetch(`${API_BASE}/assessment/placement/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Failed to submit placement quiz');
+    return await res.json();
+  },
+
+  async getModuleLesson(moduleId: string, topicIndex: number, topicName: string, level = 'scratch'): Promise<LessonContent> {
+    const res = await fetch(`${API_BASE}/modules/${moduleId}/lesson`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic_index: topicIndex,
+        topic_name: topicName,
+        level: level
+      })
+    });
+    if (!res.ok) throw new Error('Failed to generate lesson content');
+    return await res.json();
+  },
+
+  async generateBridgeRoadmap(payload: {
+    target_role: string;
+    current_ats_score: number;
+    missing_skills: string[];
+    matched_skills: string[];
+  }): Promise<BridgeRoadmapResponse> {
+    const res = await fetch(`${API_BASE}/resume/generate-bridge-roadmap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Failed to generate bridge roadmap');
+    return await res.json();
+  },
+
+  async mentorChat(
+    messages: Array<{ role: string; content: string }>,
+    learningStyle = 'hands-on',
+    language = 'en'
+  ): Promise<{
+    reply: string;
+    model_used: string;
+    detected_gaps: string[];
+    suggested_actions: Array<{ title: string; action_url: string }>;
+  }> {
+    const res = await fetch(`${API_BASE}/mentor/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages,
+        learning_style: learningStyle,
+        language
+      })
+    });
+    if (!res.ok) throw new Error('Failed to communicate with AI mentor');
+    return await res.json();
   }
 };

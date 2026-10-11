@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import {
@@ -9,374 +9,566 @@ import {
   Sparkles,
   Lock,
   ArrowRight,
-  Layers,
-  ChevronRight,
   BookOpen,
   Award,
-  ExternalLink,
-  RotateCcw
+  Zap,
+  RotateCcw,
+  Compass,
+  AlertCircle,
+  ChevronRight,
+  Check
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import { GlassCard } from '../components/ui/GlassCard';
-import { MagneticButton } from '../components/ui/MagneticButton';
 import { Badge } from '../components/ui/Badge';
-import { SkillNode, SkillGraphResponse } from '../types';
+import { CourseModule, QuizQuestionItem, QuizSubmissionResponse } from '../types';
 
 export const Roadmap: React.FC = () => {
-  const { user, addPoints, incrementStreak } = useAuth();
-  const [roadmap, setRoadmap] = useState<SkillGraphResponse | null>(null);
-  const [activeTab, setActiveTab] = useState<'timeline' | 'graph'>('timeline');
-  const [selectedNode, setSelectedNode] = useState<SkillNode | null>(null);
-  const [careerGoal, setCareerGoal] = useState(user?.career_goal || 'AI Engineer');
-  const [isUpdating, setIsUpdating] = useState(false);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user, addPoints } = useAuth();
+  const { t } = useLanguage();
+
+  const [modules, setModules] = useState<CourseModule[]>([]);
+  const [isLoadingModules, setIsLoadingModules] = useState(true);
+  const [activeTab, setActiveTab] = useState<'modules' | 'graph'>('modules');
+
+  // Placement Quiz State
+  const [placementStatus, setPlacementStatus] = useState<{
+    has_taken_placement: boolean;
+    level: string | null;
+    score_percentage: number | null;
+    can_retake: boolean;
+    cooldown_message: string | null;
+  } | null>(null);
+
+  const [isPlacementModalOpen, setIsPlacementModalOpen] = useState(false);
+  const [placementQuestions, setPlacementQuestions] = useState<QuizQuestionItem[]>([]);
+  const [placementAnswers, setPlacementAnswers] = useState<Record<string, number>>({});
+  const [placementCurrentIdx, setPlacementCurrentIdx] = useState(0);
+  const [isSubmittingPlacement, setIsSubmittingPlacement] = useState(false);
+  const [placementResult, setPlacementResult] = useState<QuizSubmissionResponse | null>(null);
+
+  const prefersReducedMotion = typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const [selectedCourse, setSelectedCourse] = useState<string>(() => {
+    const goal = (user?.career_goal || '').toLowerCase();
+    if (goal.includes('data')) return 'data-engineer';
+    if (goal.includes('cyber') || goal.includes('security')) return 'cybersecurity';
+    return 'ai-engineer';
+  });
+
+  const loadData = async (courseId = selectedCourse) => {
+    setIsLoadingModules(true);
+    try {
+      const [modsRes, placeRes] = await Promise.allSettled([
+        api.getModules(courseId),
+        api.getPlacementStatus()
+      ]);
+      if (modsRes.status === 'fulfilled') {
+        setModules(modsRes.value.modules);
+      }
+      if (placeRes.status === 'fulfilled') {
+        setPlacementStatus(placeRes.value);
+      }
+    } catch (err) {
+      console.error('Error loading roadmap data:', err);
+    } finally {
+      setIsLoadingModules(false);
+    }
+  };
+
+  const handleTrackChange = (courseId: string) => {
+    setSelectedCourse(courseId);
+    loadData(courseId);
+  };
 
   useEffect(() => {
-    api.getRoadmap(careerGoal).then((data) => {
-      setRoadmap(data);
-      if (data.nodes.length > 0 && !selectedNode) {
-        setSelectedNode(data.nodes[2] || data.nodes[0]);
-      }
-    });
-  }, [careerGoal]);
-
-  const handleRoleChange = (newRole: string) => {
-    setCareerGoal(newRole);
-  };
-
-  const handleCompleteMilestone = async (node: SkillNode) => {
-    setIsUpdating(true);
-    // Fire festive celebration confetti!
-    confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
-
-    addPoints(150);
-    incrementStreak();
-
-    // Update local state for immediate feedback
-    if (roadmap) {
-      const updatedNodes = roadmap.nodes.map(n => {
-        if (n.id === node.id) {
-          return { ...n, status: 'completed' as const, mastery_level: 100 };
-        }
-        return n;
-      });
-      setRoadmap({ ...roadmap, nodes: updatedNodes, completion_rate: Math.min(100, roadmap.completion_rate + 15) });
-      setSelectedNode(prev => prev ? { ...prev, status: 'completed', mastery_level: 100 } : null);
+    loadData();
+    if (searchParams.get('placement') === 'true') {
+      handleStartPlacement(true);
     }
-    setIsUpdating(false);
+  }, [searchParams]);
+
+  const handleStartPlacement = async (force = false) => {
+    try {
+      const data = await api.startPlacementQuiz(force);
+      setPlacementQuestions(data.questions);
+      setPlacementAnswers({});
+      setPlacementCurrentIdx(0);
+      setPlacementResult(null);
+      setIsPlacementModalOpen(true);
+    } catch (err: any) {
+      alert(err.message || 'Cannot start placement quiz right now.');
+    }
   };
+
+  const handleSubmitPlacement = async () => {
+    if (placementQuestions.length === 0) return;
+    setIsSubmittingPlacement(true);
+
+    try {
+      const res = await api.submitPlacementQuiz({
+        question_ids: placementQuestions.map((q) => q.id),
+        answers: placementAnswers
+      });
+      setPlacementResult(res);
+
+      if (res.xp_awarded > 0) {
+        addPoints(res.xp_awarded);
+      }
+
+      confetti({
+        particleCount: 120,
+        spread: 90,
+        origin: { y: 0.5 }
+      });
+
+      // Reload modules to reflect updated unlocked/skipped states
+      loadData();
+    } catch (err: any) {
+      console.error('Failed to submit placement quiz:', err);
+    } finally {
+      setIsSubmittingPlacement(false);
+    }
+  };
+
+  const handleModuleClick = (mod: CourseModule) => {
+    navigate(`/roadmap/${mod.id}`);
+  };
+
+  const passedCount = modules.filter((m) => m.status === 'passed').length;
+  const progressPercent = modules.length > 0 ? Math.round((passedCount / modules.length) * 100) : 0;
 
   return (
     <div className="relative min-h-screen bg-[var(--bg-primary)] pb-20 pt-8 text-[var(--text-primary)] transition-colors duration-300">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Header & Career Goal Selector */}
+        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-[var(--border-subtle)] pb-6">
           <div>
             <div className="flex items-center gap-2">
-              <Badge variant="in_progress">Topological DAG Graph</Badge>
-              <span className="text-xs text-slate-400">Personalized to your background</span>
+              <Badge variant="in_progress">{t('label_omniroute_powered', 'Gated Academic Curriculum')}</Badge>
+              <span className="text-xs text-slate-400">Server-Enforced Mastery Progression</span>
             </div>
             <h1 className="mt-2 text-2xl sm:text-4xl font-extrabold text-white">
-              Adaptive Learning <span className="text-gradient">Roadmap</span>
+              {t('roadmap_title', 'Personalized Learning Roadmap')}
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-slate-300">
-              Topologically sorted sequence of competencies with automated prerequisite enforcement.
+              {t('roadmap_subtitle', 'Adaptive curriculum tailored to your placement score and missing skill gaps')}
             </p>
           </div>
 
-          {/* Goal Selector & View Toggle */}
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Course Track Switcher & View Switcher */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            {/* Career Track Tabs */}
             <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-slate-900/60 p-1">
-              {['AI Engineer', 'Full Stack Developer'].map((role) => (
+              {[
+                { id: 'ai-engineer', label: t('roadmap_tab_ai', 'AI Engineer') },
+                { id: 'data-engineer', label: t('roadmap_tab_data', 'Data Engineer') },
+                { id: 'cybersecurity', label: t('roadmap_tab_cyber', 'Cybersecurity') }
+              ].map((trk) => (
                 <button
-                  key={role}
-                  onClick={() => handleRoleChange(role)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                    careerGoal === role
+                  key={trk.id}
+                  onClick={() => handleTrackChange(trk.id)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                    selectedCourse === trk.id
                       ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-neon-blue'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  {role}
+                  {trk.label}
                 </button>
               ))}
             </div>
 
-            {/* View switcher */}
+            {/* View Mode Switcher */}
             <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-slate-900/60 p-1">
               <button
-                onClick={() => setActiveTab('timeline')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                  activeTab === 'timeline'
+                onClick={() => setActiveTab('modules')}
+                className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                  activeTab === 'modules'
                     ? 'bg-slate-800 text-sky-400 border border-sky-400/20'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Timeline View
+                Curriculum Modules
               </button>
               <button
                 onClick={() => setActiveTab('graph')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   activeTab === 'graph'
                     ? 'bg-slate-800 text-sky-400 border border-sky-400/20'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Graph View
+                DAG Graph Overview
               </button>
             </div>
           </div>
         </div>
 
-        {/* Progress Bar Header */}
+        {/* Section A: Placement Assessment Banner */}
+        <div className="mt-6 overflow-hidden rounded-2xl border border-sky-500/30 bg-gradient-to-r from-sky-950/40 via-indigo-950/30 to-purple-950/40 p-5 backdrop-blur-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 shadow-neon-blue">
+                <Compass className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-white">
+                    Track Placement Assessment
+                  </h3>
+                  {placementStatus?.level && (
+                    <span className="rounded-full border border-sky-400/30 bg-sky-500/20 px-2.5 py-0.5 text-[11px] font-extrabold text-sky-300">
+                      Tier: {placementStatus.level}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-xs text-slate-300">
+                  {placementStatus?.has_taken_placement
+                    ? `Completed (${placementStatus.score_percentage}% weighted score). Foundations auto-validated by placement. ${placementStatus.can_retake ? 'Retake available.' : placementStatus.cooldown_message || ''}`
+                    : 'Take our 20-question adaptive placement quiz to skip known foundations and establish your starting baseline.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => handleStartPlacement(!placementStatus?.can_retake)}
+                className="rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-neon-blue transition-all hover:scale-105"
+              >
+                {placementStatus?.has_taken_placement ? 'Retake Placement Quiz' : 'Start Placement Quiz (20 Qs)'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Overall Curriculum Progress Bar */}
         <div className="mt-6 flex items-center justify-between rounded-2xl border border-white/[0.06] bg-slate-900/40 p-4 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400 border border-sky-400/20">
-              <Map className="h-5 w-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-400/20">
+              <Award className="h-5 w-5" />
             </div>
             <div>
               <span className="text-xs font-bold text-white block">
-                {careerGoal} Specialization Path
+                Track Completion Status
               </span>
               <span className="text-xs text-slate-400">
-                {roadmap?.nodes.filter(n => n.status === 'completed').length} of {roadmap?.nodes.length} Milestones Cleared
+                {passedCount} of {modules.length} Modules Cleared
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="hidden sm:block text-right">
-              <span className="text-xs text-slate-400 block">Overall Trajectory</span>
-              <span className="text-sm font-extrabold text-sky-400">{roadmap?.completion_rate || 66}%</span>
+              <span className="text-xs text-slate-400 block">Validated Trajectory</span>
+              <span className="text-sm font-extrabold text-emerald-400">{progressPercent}%</span>
             </div>
             <div className="h-3 w-32 sm:w-48 overflow-hidden rounded-full bg-slate-800">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-700"
-                style={{ width: `${roadmap?.completion_rate || 66}%` }}
+                className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-sky-400 transition-all duration-700"
+                style={{ width: `${progressPercent}%` }}
               />
             </div>
           </div>
         </div>
 
-        {/* Main Content Layout */}
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Timeline or Graph Nodes (7 cols) */}
-          <div className="lg:col-span-7">
-            {activeTab === 'timeline' ? (
-              <div className="relative border-l border-white/[0.1] pl-6 ml-4 space-y-8">
-                {roadmap?.nodes.map((node, index) => {
-                  const isSelected = selectedNode?.id === node.id;
-                  return (
-                    <motion.div
-                      key={node.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      onClick={() => setSelectedNode(node)}
-                      className="relative cursor-pointer group"
-                    >
-                      {/* Timeline Dot */}
-                      <div
-                        className={`absolute -left-[35px] top-4 flex h-7 w-7 items-center justify-center rounded-full border transition-all duration-300 ${
-                          node.status === 'completed'
-                            ? 'bg-sky-500 border-sky-300 shadow-[0_0_15px_#38bdf8] text-slate-950'
-                            : node.status === 'in_progress'
-                            ? 'bg-violet-600 border-violet-400 shadow-[0_0_15px_#a855f7] text-white animate-pulse'
-                            : node.status === 'ready'
-                            ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
-                            : 'bg-slate-900 border-slate-700 text-slate-600'
-                        }`}
-                      >
-                        {node.status === 'completed' ? (
-                          <CheckCircle2 className="h-4 w-4" />
-                        ) : node.status === 'locked' ? (
-                          <Lock className="h-3 w-3" />
-                        ) : (
-                          <span className="text-[10px] font-black">{index + 1}</span>
-                        )}
+        {/* Section D: Ordered Module Cards with Shared Element Transitions */}
+        {activeTab === 'modules' ? (
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {modules.map((mod) => {
+              const isLocked = mod.status === 'locked';
+              const isPassed = mod.status === 'passed';
+              const isInProgress = mod.status === 'in_progress';
+
+              return (
+                <motion.div
+                  key={mod.id}
+                  onClick={() => handleModuleClick(mod)}
+                  whileHover={isLocked ? {} : { y: -4 }}
+                  className={`relative flex flex-col justify-between rounded-2xl border p-6 transition-all cursor-pointer backdrop-blur-xl ${
+                    isLocked
+                      ? 'border-white/[0.04] bg-slate-950/40 opacity-70 cursor-not-allowed'
+                      : isPassed
+                      ? 'border-emerald-500/30 bg-slate-900/60 shadow-[0_0_20px_rgba(16,185,129,0.1)] hover:border-emerald-400/50'
+                      : isInProgress
+                      ? 'border-violet-500/40 bg-slate-900/70 shadow-[0_0_25px_rgba(168,85,247,0.15)] ring-1 ring-violet-500/30'
+                      : 'border-sky-500/30 bg-slate-900/60 hover:border-sky-400/60 shadow-neon-blue'
+                  }`}
+                >
+                  <div>
+                    {/* Top Status & Difficulty Row */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-800 text-xs font-bold text-sky-400 border border-white/[0.08]">
+                          #{mod.order_index}
+                        </span>
+                        <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          isPassed
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : isInProgress
+                            ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30 animate-pulse'
+                            : isLocked
+                            ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                            : 'bg-sky-500/20 text-sky-300 border border-sky-400/30'
+                        }`}>
+                          {isPassed ? 'Passed' : isInProgress ? 'In Progress' : isLocked ? 'Locked' : 'Available'}
+                        </span>
                       </div>
 
-                      {/* Milestone Card */}
-                      <GlassCard
-                        glowColor={node.status === 'completed' ? 'blue' : node.status === 'in_progress' ? 'violet' : 'none'}
-                        className={`p-5 transition-all ${
-                          isSelected
-                            ? 'border-sky-400/50 shadow-[0_0_25px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/40'
-                            : 'hover:border-white/20'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <Badge
-                            variant={
-                              node.status === 'completed'
-                                ? 'verified'
-                                : node.status === 'in_progress'
-                                ? 'in_progress'
-                                : node.status === 'ready'
-                                ? 'ready'
-                                : 'locked'
-                            }
-                          >
-                            {node.category} • {node.status.replace('_', ' ').toUpperCase()}
-                          </Badge>
-                          <span className="text-xs text-slate-400 flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {node.estimated_hours}h
-                          </span>
-                        </div>
-
-                        <h3 className="mt-2 text-lg font-bold text-white group-hover:text-sky-300 transition-colors">
-                          {node.name}
-                        </h3>
-
-                        {node.verified_via && (
-                          <p className="mt-1 text-xs text-sky-400/90 font-medium">
-                            ✓ {node.verified_via}
-                          </p>
-                        )}
-
-                        <div className="mt-4 flex items-center justify-between border-t border-white/[0.05] pt-3 text-xs text-slate-400">
-                          <span>Mastery: <strong className="text-white">{node.mastery_level}%</strong></span>
-                          <span className="text-sky-400 flex items-center gap-1 font-semibold">
-                            Inspect Details <ChevronRight className="h-3.5 w-3.5" />
-                          </span>
-                        </div>
-                      </GlassCard>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            ) : (
-              /* Graph View Mode */
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {roadmap?.nodes.map((node) => (
-                  <GlassCard
-                    key={node.id}
-                    onClick={() => setSelectedNode(node)}
-                    glowColor={node.status === 'completed' ? 'blue' : 'violet'}
-                    className={`p-5 cursor-pointer ${
-                      selectedNode?.id === node.id ? 'border-sky-400 ring-1 ring-sky-400' : ''
-                    }`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <Badge variant={node.status === 'completed' ? 'verified' : 'in_progress'}>
-                        {node.category}
-                      </Badge>
-                      <span className="text-xs text-slate-400">{node.estimated_hours}h</span>
+                      <span className="text-[11px] font-semibold text-slate-400">
+                        {mod.difficulty}
+                      </span>
                     </div>
-                    <h4 className="mt-2 font-bold text-white text-base">{node.name}</h4>
-                    <p className="mt-1 text-xs text-slate-300 line-clamp-2">
-                      {node.milestone_project || 'Comprehensive foundational module'}
-                    </p>
-                  </GlassCard>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Right Column: Selected Milestone Detail Panel (5 cols) */}
-          <div className="lg:col-span-5">
-            <div className="sticky top-24">
-              {selectedNode ? (
-                <GlassCard glowColor="blue" className="p-6">
+                    {/* Title & 2-3 Line Summary */}
+                    {mod.is_gap_targeted && (
+                      <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 text-[11px] font-bold text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.15)]">
+                        <Sparkles className="h-3 w-3 text-amber-400 animate-pulse" />
+                        <span>Prioritized: Bridges Your ATS Gap</span>
+                      </div>
+                    )}
+                    <h3 className="mt-3 text-lg font-bold text-white group-hover:text-sky-300 transition-colors line-clamp-1">
+                      {mod.title}
+                    </h3>
+                    <p className="mt-1.5 text-xs text-slate-300 line-clamp-3 leading-relaxed">
+                      {mod.summary}
+                    </p>
+
+                    {/* Skills Tags */}
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {mod.skills.slice(0, 3).map((s) => (
+                        <span key={s} className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-white/[0.04]">
+                          {s}
+                        </span>
+                      ))}
+                      {mod.skills.length > 3 && (
+                        <span className="rounded-md bg-slate-800/80 px-1.5 py-0.5 text-[10px] text-slate-400">
+                          +{mod.skills.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer Metrics Row */}
+                  <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3 text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5 text-sky-400" />
+                        {mod.estimated_hours}h
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <BookOpen className="h-3.5 w-3.5 text-indigo-400" />
+                        {mod.lessons_count} Lessons
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 font-bold">
+                      {isLocked ? (
+                        <span className="flex items-center gap-1 text-slate-500">
+                          <Lock className="h-3.5 w-3.5" /> Locked
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-sky-400 group-hover:translate-x-0.5 transition-transform">
+                          Quiz: {mod.best_score > 0 ? `${mod.best_score}/15` : 'Start'}
+                          <ChevronRight className="h-4 w-4" />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        ) : (
+          /* DAG Graph View Mode */
+          <div className="mt-8 space-y-4">
+            <div className="relative border-l border-sky-500/20 pl-6 ml-4 space-y-6">
+              {modules.map((mod, idx) => (
+                <div
+                  key={mod.id}
+                  onClick={() => handleModuleClick(mod)}
+                  className={`relative p-5 rounded-2xl border cursor-pointer transition-all ${
+                    mod.status === 'locked'
+                      ? 'border-white/[0.05] bg-slate-950/40 opacity-70'
+                      : 'border-white/[0.1] bg-slate-900/60 hover:border-sky-400/40'
+                  }`}
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs uppercase font-bold tracking-wider text-sky-400">
-                      Milestone Deep-Dive
-                    </span>
-                    <Badge
-                      variant={
-                        selectedNode.status === 'completed'
-                          ? 'verified'
-                          : selectedNode.status === 'in_progress'
-                          ? 'in_progress'
-                          : selectedNode.status === 'ready'
-                          ? 'ready'
-                          : 'locked'
-                      }
-                    >
-                      {selectedNode.status.replace('_', ' ')}
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-sky-400">
+                        {idx + 1}
+                      </span>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">{mod.title}</h4>
+                        <span className="text-xs text-slate-400">{mod.difficulty} • {mod.estimated_hours} Hours</span>
+                      </div>
+                    </div>
+                    <Badge variant={mod.status === 'passed' ? 'verified' : mod.status === 'in_progress' ? 'in_progress' : mod.status === 'locked' ? 'locked' : 'ready'}>
+                      {mod.status}
                     </Badge>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
-                  <h2 className="mt-3 text-2xl font-bold text-white">
-                    {selectedNode.name}
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Category: <strong className="text-slate-200">{selectedNode.category}</strong> • Duration: <strong className="text-slate-200">{selectedNode.estimated_hours} Hours</strong>
-                  </p>
-
-                  {/* Prerequisites */}
-                  <div className="mt-5 rounded-xl border border-white/[0.06] bg-slate-900/60 p-4">
-                    <span className="text-xs font-bold text-slate-300 block mb-2">Prerequisites Required:</span>
-                    {selectedNode.prerequisites.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {selectedNode.prerequisites.map((prereq) => (
-                          <span
-                            key={prereq}
-                            className="rounded-lg border border-sky-400/20 bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-300"
-                          >
-                            ✓ {prereq.replace('-', ' ').toUpperCase()}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-500">None (Foundational Entry Milestone)</span>
-                    )}
+      {/* Interactive Placement Quiz Modal (20 Questions) */}
+      <AnimatePresence>
+        {isPlacementModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-3xl rounded-3xl border border-sky-500/30 bg-slate-950 p-6 sm:p-8 text-white shadow-2xl my-8"
+            >
+              {!placementResult ? (
+                <div>
+                  <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-sky-400">
+                        Adaptive Placement Quiz
+                      </span>
+                      <h3 className="text-lg font-bold text-white">
+                        Question {placementCurrentIdx + 1} of {placementQuestions.length}
+                      </h3>
+                    </div>
+                    <button
+                      onClick={() => setIsPlacementModalOpen(false)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:text-white"
+                    >
+                      ✕
+                    </button>
                   </div>
 
-                  {/* Required Milestone Capstone */}
-                  <div className="mt-4 rounded-xl border border-white/[0.06] bg-slate-900/60 p-4">
-                    <div className="flex items-center gap-2 text-xs font-bold text-amber-300 mb-1">
-                      <Sparkles className="h-4 w-4" />
-                      <span>Portfolio Validation Capstone:</span>
+                  {placementQuestions[placementCurrentIdx] && (
+                    <div className="mt-6 space-y-4">
+                      <div className="flex items-center gap-2 text-xs text-slate-400">
+                        <span className="rounded bg-slate-800 px-2 py-0.5">
+                          {placementQuestions[placementCurrentIdx].topic}
+                        </span>
+                        <span>• {placementQuestions[placementCurrentIdx].difficulty}</span>
+                      </div>
+
+                      <h4 className="text-base font-semibold text-white">
+                        {placementQuestions[placementCurrentIdx].question}
+                      </h4>
+
+                      <div className="mt-4 space-y-2.5">
+                        {placementQuestions[placementCurrentIdx].options.map((opt, optIdx) => {
+                          const qid = placementQuestions[placementCurrentIdx].id;
+                          const isSelected = placementAnswers[qid] === optIdx;
+                          return (
+                            <button
+                              key={optIdx}
+                              onClick={() => setPlacementAnswers((prev) => ({ ...prev, [qid]: optIdx }))}
+                              className={`w-full text-left rounded-xl p-3.5 text-xs transition-all border ${
+                                isSelected
+                                  ? 'border-sky-400 bg-sky-500/20 text-sky-200 font-semibold shadow-[0_0_15px_rgba(56,189,248,0.2)]'
+                                  : 'border-white/[0.06] bg-slate-900/50 text-slate-300 hover:border-white/20'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
+                                  isSelected ? 'bg-sky-400 text-slate-950' : 'bg-slate-800 text-slate-400'
+                                }`}>
+                                  {String.fromCharCode(65 + optIdx)}
+                                </span>
+                                <span>{opt}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Navigation Controls */}
+                      <div className="flex items-center justify-between pt-6 border-t border-white/[0.08]">
+                        <button
+                          disabled={placementCurrentIdx === 0}
+                          onClick={() => setPlacementCurrentIdx((i) => Math.max(0, i - 1))}
+                          className="px-4 py-2 text-xs font-semibold text-slate-400 disabled:opacity-30"
+                        >
+                          Previous
+                        </button>
+
+                        <div className="flex gap-2">
+                          {placementCurrentIdx < placementQuestions.length - 1 ? (
+                            <button
+                              onClick={() => setPlacementCurrentIdx((i) => Math.min(placementQuestions.length - 1, i + 1))}
+                              className="rounded-xl bg-slate-800 px-5 py-2 text-xs font-bold text-white hover:bg-slate-700"
+                            >
+                              Next
+                            </button>
+                          ) : (
+                            <button
+                              disabled={isSubmittingPlacement}
+                              onClick={handleSubmitPlacement}
+                              className="rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-6 py-2 text-xs font-bold text-white shadow-neon-blue"
+                            >
+                              {isSubmittingPlacement ? 'Grading...' : 'Submit 20 Qs'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      {selectedNode.milestone_project || 'Comprehensive algorithmic implementation repository.'}
+                  )}
+                </div>
+              ) : (
+                /* Placement Quiz Results */
+                <div className="text-center py-4 space-y-6">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 shadow-neon-blue">
+                    <Sparkles className="h-8 w-8 text-white" />
+                  </div>
+
+                  <div>
+                    <span className="text-xs uppercase font-extrabold tracking-wider text-sky-400">
+                      Placement Complete
+                    </span>
+                    <h3 className="mt-1 text-2xl font-extrabold text-white">
+                      Ranked: {placementResult.level} Tier
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-300">
+                      Weighted Score: {placementResult.score_percentage}% ({placementResult.score_correct} / {placementResult.total_questions} correct)
                     </p>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="mt-6 flex flex-col gap-3">
-                    <Link to="/assessment" className="w-full">
-                      <MagneticButton variant="primary" className="w-full justify-center">
-                        <Award className="h-4 w-4" />
-                        <span>Launch Adaptive Assessment for this Skill</span>
-                      </MagneticButton>
-                    </Link>
-
-                    <Link to="/resources" className="w-full">
-                      <MagneticButton variant="secondary" className="w-full justify-center">
-                        <BookOpen className="h-4 w-4 text-sky-400" />
-                        <span>Explore Grounded Study Resources</span>
-                      </MagneticButton>
-                    </Link>
-
-                    {selectedNode.status !== 'completed' && (
-                      <MagneticButton
-                        onClick={() => handleCompleteMilestone(selectedNode)}
-                        disabled={isUpdating}
-                        variant="glow"
-                        className="w-full justify-center"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>Mark Milestone as Cleared (+150 XP)</span>
-                      </MagneticButton>
-                    )}
+                  <div className="rounded-2xl border border-white/[0.08] bg-slate-900/60 p-4 text-xs text-slate-300 text-left leading-relaxed">
+                    <span className="font-bold text-sky-400 block mb-1">AI Academic Evaluation:</span>
+                    {placementResult.explanation}
                   </div>
-                </GlassCard>
-              ) : (
-                <GlassCard className="p-8 text-center text-slate-400">
-                  Select any milestone node on the timeline to inspect syllabus details.
-                </GlassCard>
+
+                  {placementResult.topic_breakdown && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-left">
+                      {Object.entries(placementResult.topic_breakdown).map(([top, stat]: any) => (
+                        <div key={top} className="bg-slate-900/40 p-2.5 rounded-xl border border-white/[0.04]">
+                          <span className="text-[11px] font-semibold text-slate-300 block line-clamp-1">{top}</span>
+                          <span className="text-xs font-extrabold text-sky-400">{stat.percentage}% ({stat.correct}/{stat.total})</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="pt-4">
+                    <button
+                      onClick={() => setIsPlacementModalOpen(false)}
+                      className="rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-8 py-2.5 text-xs font-bold text-white shadow-neon-blue"
+                    >
+                      View Updated Roadmap
+                    </button>
+                  </div>
+                </div>
               )}
-            </div>
+            </motion.div>
           </div>
-        </div>
-      </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

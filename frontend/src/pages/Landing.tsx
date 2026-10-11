@@ -18,8 +18,11 @@ import { SkillGalaxyHero } from '../components/3d/SkillGalaxyHero';
 import { GlassCard } from '../components/ui/GlassCard';
 import { MagneticButton } from '../components/ui/MagneticButton';
 import { Badge } from '../components/ui/Badge';
+import { useLanguage } from '../context/LanguageContext';
 
 export const Landing: React.FC = () => {
+  const { t } = useLanguage();
+
   return (
     <div className="relative min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden transition-colors duration-300">
       {/* Background Lighting & Glow Orbs */}
@@ -38,7 +41,7 @@ export const Landing: React.FC = () => {
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-950/40 px-4 py-1.5 text-xs font-semibold text-sky-300 backdrop-blur-md shadow-[0_0_20px_rgba(56,189,248,0.2)]">
               <Sparkles className="h-3.5 w-3.5 text-sky-400 animate-spin" style={{ animationDuration: '8s' }} />
-              <span>Next-Gen Student AI Academic Companion & Career Mentor</span>
+              <span>{t('landing_badge', 'Next-Gen Student AI Academic Companion & Career Mentor')}</span>
               <span className="rounded-full bg-sky-400/20 px-2 py-0.5 text-[10px] text-sky-200">v1.0 Live</span>
             </div>
           </motion.div>
@@ -50,8 +53,8 @@ export const Landing: React.FC = () => {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="mt-6 max-w-4xl text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl"
           >
-            Bridge Your Degree with <br />
-            <span className="text-gradient">Industry AI Superpowers</span>
+            {t('landing_hero_title_1', 'Bridge Your Degree with')} <br />
+            <span className="text-gradient">{t('landing_hero_title_2', 'Industry AI Superpowers')}</span>
           </motion.h1>
 
           <motion.p
@@ -60,8 +63,7 @@ export const Landing: React.FC = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="mt-6 max-w-2xl text-base text-slate-300 sm:text-lg"
           >
-            Synthesizes your academic coursework, OCR-verified certifications, and GitHub repositories into
-            living adaptive roadmaps, RAG-grounded learning, and recruiter-grade ATS resume intelligence.
+            {t('landing_hero_desc', 'Synthesizes your academic coursework, OCR-verified certifications, and GitHub repositories into living adaptive roadmaps, RAG-grounded learning, and recruiter-grade ATS resume intelligence.')}
           </motion.p>
 
           {/* Action CTAs */}
@@ -71,16 +73,16 @@ export const Landing: React.FC = () => {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="mt-8 flex flex-wrap items-center justify-center gap-4"
           >
-            <Link to="/onboarding">
+            <Link to="/getting-started">
               <MagneticButton variant="primary" className="text-base px-7 py-3.5 shadow-neon-blue">
-                <span>Start Free Profiling</span>
+                <span>{t('landing_cta_profile', 'Start Free Profiling')}</span>
                 <ArrowRight className="h-4 w-4" />
               </MagneticButton>
             </Link>
-            <Link to="/dashboard">
+            <Link to="/roadmap">
               <MagneticButton variant="secondary" className="text-base px-7 py-3.5 border-slate-700/80">
                 <Play className="h-4 w-4 text-sky-400 fill-sky-400" />
-                <span>Explore Live Demo</span>
+                <span>{t('landing_cta_demo', 'Explore Live Demo')}</span>
               </MagneticButton>
             </Link>
           </motion.div>
@@ -94,19 +96,19 @@ export const Landing: React.FC = () => {
           >
             <div>
               <div className="text-2xl sm:text-3xl font-black text-white">98.4%</div>
-              <div className="text-xs text-slate-400 mt-0.5">ATS Alignment Rate</div>
+              <div className="text-xs text-slate-400 mt-0.5">{t('landing_stat_ats', 'ATS Alignment Rate')}</div>
             </div>
             <div>
               <div className="text-2xl sm:text-3xl font-black text-sky-400">12,400+</div>
-              <div className="text-xs text-slate-400 mt-0.5">RAG Grounded Resources</div>
+              <div className="text-xs text-slate-400 mt-0.5">{t('nav_resources', 'RAG Resources')}</div>
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-black text-violet-400">60 FPS</div>
-              <div className="text-xs text-slate-400 mt-0.5">3D Skill Galaxy Engine</div>
+              <div className="text-2xl sm:text-3xl font-black text-violet-400">100%</div>
+              <div className="text-xs text-slate-400 mt-0.5">{t('label_offline_ready', 'Available Offline')}</div>
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-black text-emerald-400">0s Delay</div>
-              <div className="text-xs text-slate-400 mt-0.5">Instant Adaptive Feedback</div>
+              <div className="text-2xl sm:text-3xl font-black text-emerald-400">7+</div>
+              <div className="text-xs text-slate-400 mt-0.5">Indian Languages</div>
             </div>
           </motion.div>
         </div>
@@ -140,13 +142,13 @@ export const Landing: React.FC = () => {
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-400/30 text-sky-400 shadow-neon-blue">
               <Brain className="h-6 w-6" />
             </div>
-            <h3 className="mt-4 text-lg font-bold text-white">1. Intelligent Skill Profiling</h3>
+            <h3 className="mt-4 text-lg font-bold text-white">{t('landing_feat_1_title', 'Adaptive Learning Roadmaps')}</h3>
             <p className="mt-2 text-xs leading-relaxed text-slate-300">
-              Drag-and-drop resume parser and certificate CV/OCR extraction pipeline. Instantly discovers proven competencies and creates verified student credential badges.
+              {t('landing_feat_1_desc', 'Dynamic graphs recalibrating in real time to your demonstrated competencies, skill gaps, and target roles.')}
             </p>
             <div className="mt-4 flex flex-wrap gap-1.5">
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-sky-300">PyMuPDF</span>
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-sky-300">CV/OCR Pipeline</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-sky-300">AI / Data / Cyber</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-sky-300">Adaptive DAG</span>
               <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-sky-300">Auto-Taxonomy</span>
             </div>
           </GlassCard>
@@ -154,80 +156,80 @@ export const Landing: React.FC = () => {
           {/* Card 2: Roadmap Generator */}
           <GlassCard glowColor="violet" className="p-6">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10 border border-violet-400/30 text-violet-400 shadow-neon-violet">
-              <Compass className="h-6 w-6" />
-            </div>
-            <h3 className="mt-4 text-lg font-bold text-white">2. Interactive Adaptive Roadmap</h3>
-            <p className="mt-2 text-xs leading-relaxed text-slate-300">
-              Topological DAG generator mapping prerequisites, estimated milestone hours, and hands-on capstone projects tailored to your target career role.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">Graph DAG</span>
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">Prerequisite Trees</span>
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">Dynamic Milestones</span>
-            </div>
-          </GlassCard>
-
-          {/* Card 3: RAG Resource Recommender */}
-          <GlassCard glowColor="emerald" className="p-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-400/30 text-emerald-400">
-              <Terminal className="h-6 w-6" />
-            </div>
-            <h3 className="mt-4 text-lg font-bold text-white">3. RAG Resource Recommender</h3>
-            <p className="mt-2 text-xs leading-relaxed text-slate-300">
-              Vector-retrieved curated study feed with provenance citations. Filter by video blitz, deep-dive research papers, or interactive coding sandboxes.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">Vector Search</span>
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">Grounded Citations</span>
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">Zero Hallucination</span>
-            </div>
-          </GlassCard>
-
-          {/* Card 4: Adaptive Assessment */}
-          <GlassCard glowColor="blue" className="p-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-400/30 text-sky-400">
-              <Award className="h-6 w-6" />
-            </div>
-            <h3 className="mt-4 text-lg font-bold text-white">4. Adaptive Assessment Engine</h3>
-            <p className="mt-2 text-xs leading-relaxed text-slate-300">
-              Real-time difficulty meter scaling dynamically from Easy to Expert based on consecutive precision, with code execution and instant conceptual debriefs.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-sky-300">Real-time Adaptation</span>
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-sky-300">Code Snippets</span>
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-sky-300">Instant XP Rewards</span>
-            </div>
-          </GlassCard>
-
-          {/* Card 5: Resume Intelligence */}
-          <GlassCard glowColor="violet" className="p-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10 border border-violet-400/30 text-violet-400">
               <FileCheck className="h-6 w-6" />
             </div>
-            <h3 className="mt-4 text-lg font-bold text-white">5. Resume & ATS Intelligence</h3>
+            <h3 className="mt-4 text-lg font-bold text-white">{t('landing_feat_2_title', 'ATS Resume Audit & Bridge Engine')}</h3>
             <p className="mt-2 text-xs leading-relaxed text-slate-300">
-              Comprehensive ATS score audit with impact metrics analyzer, keyword gap highlighter, and 1-click action to inject missing skills into your learning roadmap.
+              {t('landing_feat_2_desc', 'Extracts keywords, audits formatting, scores impact metrics, and builds personalized bridge roadmaps to close missing gaps.')}
             </p>
             <div className="mt-4 flex flex-wrap gap-1.5">
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">ATS Score Gauge</span>
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">Impact Verbs</span>
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">Gap Highlighter</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">Dynamic Roles</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">Skill Gap Bridge</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">ATS Gauge</span>
             </div>
           </GlassCard>
 
-          {/* Card 6: Project & Cert Recommender */}
+          {/* Card 3: Adaptive Assessment */}
+          <GlassCard glowColor="emerald" className="p-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-400/30 text-emerald-400">
+              <Award className="h-6 w-6" />
+            </div>
+            <h3 className="mt-4 text-lg font-bold text-white">{t('landing_feat_3_title', 'Real-Time Adaptive Assessment')}</h3>
+            <p className="mt-2 text-xs leading-relaxed text-slate-300">
+              {t('landing_feat_3_desc', 'Verified non-repeating question banks measuring your real skill level with deterministic server-side scoring.')}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">Randomized Bank</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">Server XP Gating</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">Placement Level</span>
+            </div>
+          </GlassCard>
+
+          {/* Card 4: AI Mentor */}
+          <GlassCard glowColor="blue" className="p-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-400/30 text-sky-400">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <h3 className="mt-4 text-lg font-bold text-white">{t('landing_feat_4_title', 'OmniRoute Personalized AI Mentor')}</h3>
+            <p className="mt-2 text-xs leading-relaxed text-slate-300">
+              {t('landing_feat_4_desc', 'Elite contextual AI advisor aware of your streak, detected ATS gaps, active module, and preferred learning style.')}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-sky-300">OmniRoute AI</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-sky-300">Contextual Memory</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-sky-300">Dedicated Key</span>
+            </div>
+          </GlassCard>
+
+          {/* Card 5: Offline Learning */}
+          <GlassCard glowColor="violet" className="p-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10 border border-violet-400/30 text-violet-400">
+              <Compass className="h-6 w-6" />
+            </div>
+            <h3 className="mt-4 text-lg font-bold text-white">{t('landing_feat_5_title', 'Offline Learning Study Packs')}</h3>
+            <p className="mt-2 text-xs leading-relaxed text-slate-300">
+              {t('landing_feat_5_desc', 'Export self-contained markdown curriculum bundles with code, documentation, and quizzes for offline study anywhere.')}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">Markdown Bundles</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">Browser Caching</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-violet-300">Zero Internet</span>
+            </div>
+          </GlassCard>
+
+          {/* Card 6: Multilingual Support */}
           <GlassCard glowColor="emerald" className="p-6">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-400/30 text-emerald-400">
               <TrendingUp className="h-6 w-6" />
             </div>
-            <h3 className="mt-4 text-lg font-bold text-white">6. Project & Cert Recommender</h3>
+            <h3 className="mt-4 text-lg font-bold text-white">{t('landing_feat_6_title', 'Multilingual Across India')}</h3>
             <p className="mt-2 text-xs leading-relaxed text-slate-300">
-              Curated capstone projects, industry-standard certifications (AWS, DeepLearning.AI), and matching internships with explainable "Why this matches" RAG cards.
+              {t('landing_feat_6_desc', 'Learn in your native language with comprehensive support across English, Hindi, Telugu, Tamil, Kannada, Bengali, and Marathi.')}
             </p>
             <div className="mt-4 flex flex-wrap gap-1.5">
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">Explainable AI</span>
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">Portfolio Proof</span>
-              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">Internship Spec</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">7 Languages</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">Instant Switcher</span>
+              <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] text-emerald-300">Native Context</span>
             </div>
           </GlassCard>
         </div>
@@ -241,17 +243,17 @@ export const Landing: React.FC = () => {
             Experience the Future of AI Mentorship
           </h2>
           <p className="relative z-10 mx-auto mt-4 max-w-xl text-slate-300 text-sm sm:text-base">
-            One-click demonstration ready for judges and recruiters. Preloaded with Aarav Sharma's AI Engineer profile.
+            One-click demonstration ready for students, judges and recruiters. Preloaded with comprehensive career tracks.
           </p>
           <div className="relative z-10 mt-8 flex flex-wrap justify-center gap-4">
-            <Link to="/dashboard">
+            <Link to="/roadmap">
               <MagneticButton variant="primary" className="text-base px-8 py-3.5 shadow-neon-blue">
-                Launch Live Platform Dashboard
+                {t('btn_view_roadmap', 'View Roadmap')}
               </MagneticButton>
             </Link>
-            <Link to="/onboarding">
+            <Link to="/getting-started">
               <MagneticButton variant="secondary" className="text-base px-8 py-3.5">
-                Upload Custom Resume
+                {t('nav_get_started', 'Get Started')}
               </MagneticButton>
             </Link>
           </div>

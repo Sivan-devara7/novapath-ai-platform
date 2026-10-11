@@ -114,22 +114,43 @@ QUESTION_BANK: Dict[str, List[Dict[str, Any]]] = {
 class AssessmentService:
     def get_questions_for_skill(self, skill_id: str) -> List[AssessmentQuestion]:
         # Normalize skill name
-        key = "pytorch" if "torch" in skill_id.lower() or "py" in skill_id.lower() else "transformers"
+        key = "pytorch"
+        s_lower = skill_id.lower()
+        if "transform" in s_lower or "llm" in s_lower or "attention" in s_lower:
+            key = "transformers"
+        elif "sql" in s_lower or "data" in s_lower:
+            key = "sql_data"
+        elif "sec" in s_lower or "cyber" in s_lower:
+            key = "security"
+
         raw_items = QUESTION_BANK.get(key, QUESTION_BANK["pytorch"])
-        
-        return [
-            AssessmentQuestion(
-                id=item["id"],
-                skill_id=skill_id,
-                question=item["question"],
-                code_snippet=item.get("code_snippet"),
-                options=item["options"],
-                difficulty=item["difficulty"],
-                type="multiple_choice",
-                hint=item.get("hint")
+
+        import random
+        # Randomize sample and shuffle options so questions vary on every assessment
+        sampled = list(raw_items)
+        random.shuffle(sampled)
+
+        result = []
+        for item in sampled:
+            opts = list(item["options"])
+            correct_val = opts[item["correct_index"]]
+            random.shuffle(opts)
+            new_idx = opts.index(correct_val)
+            item["current_correct_index"] = new_idx
+
+            result.append(
+                AssessmentQuestion(
+                    id=item["id"],
+                    skill_id=skill_id,
+                    question=item["question"],
+                    code_snippet=item.get("code_snippet"),
+                    options=opts,
+                    difficulty=item["difficulty"],
+                    type="multiple_choice",
+                    hint=item.get("hint")
+                )
             )
-            for item in raw_items
-        ]
+        return result
 
     def evaluate_answer(self, question_id: str, selected_index: int, current_consecutive_correct: int) -> AssessmentFeedback:
         # Search question across banks
@@ -143,10 +164,10 @@ class AssessmentService:
                 break
 
         if not target_q:
-            # Fallback
             target_q = QUESTION_BANK["pytorch"][0]
 
-        is_correct = (selected_index == target_q["correct_index"])
+        correct_idx = target_q.get("current_correct_index", target_q["correct_index"])
+        is_correct = (selected_index == correct_idx)
         
         # Adaptive difficulty adjustment logic
         difficulties = ["Easy", "Medium", "Hard", "Expert"]
@@ -166,7 +187,7 @@ class AssessmentService:
 
         return AssessmentFeedback(
             is_correct=is_correct,
-            correct_option_index=target_q["correct_index"],
+            correct_option_index=correct_idx,
             explanation=target_q["explanation"],
             grounded_source=target_q["grounded_source"],
             new_difficulty=new_difficulty,

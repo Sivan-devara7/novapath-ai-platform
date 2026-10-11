@@ -72,12 +72,17 @@ web_modules/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variable files
+# Environment variable files
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+backend/.env
+frontend/.env
+*.env.local
+.env.*
+backend/.env.*
+frontend/.env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -134,3 +139,11 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Raw ML Datasets (Spec: Never commit raw datasets)
+*.csv
+*.tsv
+data/
+backend/data/*.csv
+backend/data/raw/
+backend/novapath.db

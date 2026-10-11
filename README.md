@@ -18,6 +18,37 @@ A flagship, dark glassmorphic web platform acting as an autonomous student AI ac
 
 ---
 
+## ⚙️ Environment Setup
+
+Configuration is centrally managed via `backend/.env`. A template is provided in `backend/.env.example`.
+
+To set up your local environment:
+```bash
+cp backend/.env.example backend/.env
+```
+Open `backend/.env` and paste your `OMNIROUTE_API_KEY`.
+
+> **Important**: OmniRoute must be running locally (default: `http://127.0.0.1:20128/v1`). Obtain your API key from the **OmniRoute dashboard** under **Endpoints**.
+
+### Environment Variables Reference
+
+| Variable | Default | Description |
+|---|---|---|
+| `OMNIROUTE_BASE_URL` | `http://127.0.0.1:20128/v1` | Base URL of the running OmniRoute proxy instance. |
+| `OMNIROUTE_API_KEY` | *(empty)* | Your private OmniRoute API key (from OmniRoute Dashboard -> Endpoints). |
+| `OMNIROUTE_MODEL` | `auto` | Primary model route or model name (e.g. `auto`, `gemini-2.0-flash`). |
+| `OMNIROUTE_FAST_MODEL` | *(empty)* | Optional fast/lightweight model route for high-throughput tasks. |
+| `OMNIROUTE_STRONG_MODEL` | *(empty)* | Optional strong model route for complex reasoning/evaluation tasks. |
+| `OMNIROUTE_TIMEOUT_SECONDS` | `60` | Request timeout in seconds for LLM calls. |
+| `JWT_SECRET` | `change-me` | Secret key used for signing session tokens and JWTs. |
+| `DATABASE_URL` | *(empty)* | Optional database connection string (defaults to SQLite fallback). |
+| `FRONTEND_ORIGIN` | `http://localhost:5173` | Allowed frontend origin for CORS headers during local Vite development. |
+| `PORT` | `8000` | Port for the backend / unified web server. |
+
+> **Security Note**: Never commit `backend/.env`. Real environment variables override `.env` values in cloud environments. Check AI status anytime via `GET /api/ai/health`.
+
+---
+
 ## 🚀 Single-URL Unified Hosting (Recommended)
 
 Run the entire fullstack platform (React SPA + FastAPI APIs + Swagger Docs) under **one single URL**:
@@ -65,7 +96,9 @@ A multi-stage [Dockerfile](file:///Dockerfile) is included to containerize and d
 
 ```bash
 docker build -t novapath-ai .
-docker run -p 8000:8000 -e PORT=8000 novapath-ai
+
+# Pass environment variables at runtime via --env-file:
+docker run --env-file backend/.env -p 8000:8000 novapath-ai
 ```
 
 ## 🧭 Live Routes & Testing Guide

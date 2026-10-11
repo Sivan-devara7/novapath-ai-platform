@@ -13,21 +13,23 @@ import {
   LogOut,
   LayoutDashboard
 } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage, SUPPORTED_LANGUAGES, SupportedLanguage } from '../../context/LanguageContext';
 import { MagneticButton } from '../ui/MagneticButton';
 import { ThemeSwitcher } from '../ui/ThemeSwitcher';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
+  const [langMenuOpen, setLangMenuOpen] = React.useState(false);
 
   const navLinks = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Roadmap', path: '/roadmap', icon: Map },
-    { name: 'Resources', path: '/resources', icon: BookOpen },
-    { name: 'Assessments', path: '/assessment', icon: CheckCircle2 },
-    { name: 'Resume ATS', path: '/resume', icon: FileText },
-    { name: 'AI Matches', path: '/recommendations', icon: Sparkles },
+    { name: t('nav_dashboard', 'Dashboard'), path: '/dashboard', icon: LayoutDashboard },
+    { name: t('nav_roadmap', 'Roadmap'), path: '/roadmap', icon: Map },
+    { name: t('nav_ats', 'Resume ATS'), path: '/resume', icon: FileText },
+    { name: t('nav_projects', 'AI Matches'), path: '/recommendations', icon: Sparkles },
   ];
 
   return (
@@ -79,6 +81,43 @@ export const Navbar: React.FC = () => {
           {/* Visual Theme Selector */}
           <ThemeSwitcher />
 
+          {/* Indian Language Selector Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setLangMenuOpen(!langMenuOpen)}
+              className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-slate-900/70 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
+              title="Change Language"
+            >
+              <Globe className="h-3.5 w-3.5 text-sky-400" />
+              <span>{SUPPORTED_LANGUAGES.find((l) => l.code === language)?.nativeName || 'English'}</span>
+            </button>
+
+            {langMenuOpen && (
+              <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-white/[0.1] bg-slate-900/95 p-1.5 shadow-2xl backdrop-blur-xl z-50">
+                <div className="px-2 py-1 text-[10px] font-bold uppercase text-slate-400">
+                  Languages of India
+                </div>
+                {SUPPORTED_LANGUAGES.map((l) => (
+                  <button
+                    key={l.code}
+                    onClick={() => {
+                      setLanguage(l.code);
+                      setLangMenuOpen(false);
+                    }}
+                    className={`flex items-center justify-between w-full rounded-xl px-2.5 py-1.5 text-xs text-left transition-colors ${
+                      language === l.code
+                        ? 'bg-sky-500/20 text-sky-300 font-bold border border-sky-400/30'
+                        : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+                    }`}
+                  >
+                    <span>{l.nativeName}</span>
+                    <span className="text-[10px] text-slate-400">{l.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {isAuthenticated && user ? (
             <>
               {/* Streak Tracker */}
@@ -119,10 +158,10 @@ export const Navbar: React.FC = () => {
           ) : (
             <div className="flex items-center gap-2">
               <Link to="/login">
-                <MagneticButton variant="ghost">Sign In</MagneticButton>
+                <MagneticButton variant="ghost">{t('nav_login', 'Sign In')}</MagneticButton>
               </Link>
-              <Link to="/onboarding">
-                <MagneticButton variant="primary">Get Started</MagneticButton>
+              <Link to="/getting-started">
+                <MagneticButton variant="primary">{t('nav_get_started', 'Get Started')}</MagneticButton>
               </Link>
             </div>
           )}

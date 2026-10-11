@@ -25,22 +25,24 @@ def build_frontend():
     print("✅ Frontend build completed successfully!\n")
 
 def main():
+    root_dir = os.path.abspath(os.path.dirname(__file__))
+    backend_dir = os.path.join(root_dir, "backend")
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
+
+    from app.config import settings
+
     parser = argparse.ArgumentParser(description="Host NovaPath fullstack website under a single URL")
-    parser.add_argument("--port", type=int, default=int(os.getenv("PORT", 8000)), help="Port to host on (default: 8000)")
-    parser.add_argument("--host", type=str, default=os.getenv("HOST", "0.0.0.0"), help="Host IP (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=settings.PORT, help=f"Port to host on (default: {settings.PORT})")
+    parser.add_argument("--host", type=str, default=settings.HOST, help=f"Host IP (default: {settings.HOST})")
     parser.add_argument("--build", action="store_true", help="Force rebuild frontend before starting")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload for development")
     args = parser.parse_args()
 
-    root_dir = os.path.abspath(os.path.dirname(__file__))
     dist_dir = os.path.join(root_dir, "frontend", "dist")
 
     if args.build or not os.path.isdir(dist_dir) or not os.path.isfile(os.path.join(dist_dir, "index.html")):
         build_frontend()
-
-    backend_dir = os.path.join(root_dir, "backend")
-    if backend_dir not in sys.path:
-        sys.path.insert(0, backend_dir)
 
     import uvicorn
 

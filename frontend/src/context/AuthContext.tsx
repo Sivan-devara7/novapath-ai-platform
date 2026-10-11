@@ -6,7 +6,8 @@ interface AuthContextType {
   user: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: () => Promise<void>;
+  login: (email?: string, password?: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, careerGoal?: string) => Promise<void>;
   logout: () => void;
   updateUser: (updated: Partial<UserProfile>) => void;
   addPoints: (amount: number) => void;
@@ -45,8 +46,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async () => {
-    await loginDemo();
+  const login = async (email?: string, password?: string) => {
+    const data = await api.login(email, password);
+    setUser(data.user);
+    localStorage.setItem('vizag_user', JSON.stringify(data.user));
+    if (data.access_token) {
+      localStorage.setItem('vizag_token', data.access_token);
+    }
+  };
+
+  const signup = async (name: string, email: string, password: string, careerGoal = 'AI Engineer') => {
+    const data = await api.signup(name, email, password, careerGoal);
+    setUser(data.user);
+    localStorage.setItem('vizag_user', JSON.stringify(data.user));
+    if (data.access_token) {
+      localStorage.setItem('vizag_token', data.access_token);
+    }
   };
 
   const logout = () => {
@@ -88,6 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isLoading,
         login,
+        signup,
         logout,
         updateUser,
         addPoints,

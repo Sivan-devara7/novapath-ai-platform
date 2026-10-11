@@ -16,6 +16,7 @@ import {
   Code
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import { GlassCard } from '../components/ui/GlassCard';
 import { MagneticButton } from '../components/ui/MagneticButton';
@@ -23,7 +24,8 @@ import { Badge } from '../components/ui/Badge';
 import { AssessmentQuestion, AssessmentFeedback } from '../types';
 
 export const Assessment: React.FC = () => {
-  const { addPoints } = useAuth();
+  const { addPoints, user } = useAuth();
+  const { t } = useLanguage();
   const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -35,14 +37,24 @@ export const Assessment: React.FC = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [showHint, setShowHint] = useState(false);
 
-  useEffect(() => {
-    api.getQuestions('pytorch').then((items) => {
+  const skillKey = (user?.career_goal || '').toLowerCase().includes('data')
+    ? 'sql_data'
+    : (user?.career_goal || '').toLowerCase().includes('cyber')
+    ? 'security'
+    : 'pytorch';
+
+  const loadQuestions = () => {
+    api.getQuestions(skillKey).then((items) => {
       setQuestions(items);
       if (items.length > 0) {
         setCurrentDifficulty(items[0].difficulty);
       }
     });
-  }, []);
+  };
+
+  useEffect(() => {
+    loadQuestions();
+  }, [user?.career_goal]);
 
   const currentQ = questions[currentIndex];
 
@@ -104,6 +116,7 @@ export const Assessment: React.FC = () => {
     setScoreTotal(0);
     setConsecutiveCorrect(0);
     setCurrentDifficulty('Easy');
+    loadQuestions();
   };
 
   const difficultyColors = {
@@ -124,7 +137,7 @@ export const Assessment: React.FC = () => {
               <span className="text-xs text-slate-400">PyTorch & Deep Learning Milestone</span>
             </div>
             <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold text-white">
-              Adaptive Mastery <span className="text-gradient">Challenge</span>
+              {t('assessment_title', 'Adaptive Placement & Skill Assessment')}
             </h1>
           </div>
 
