@@ -83,6 +83,8 @@ async def ai_health():
     except Exception as exc:
         return {"ok": False, "reason": f"OmniRoute connection failed: {type(exc).__name__}"}
 
+# Frontend build directory.
+# On Vercel, the frontend may be deployed separately.
 FRONTEND_DIST_DIR = os.path.abspath(
     os.path.join(
         os.path.dirname(__file__),
@@ -95,8 +97,8 @@ FRONTEND_DIST_DIR = os.path.abspath(
 
 assets_dir = os.path.join(FRONTEND_DIST_DIR, "assets")
 
-# A separately deployed Vercel backend may not contain frontend files.
-# Never create directories inside the deployment filesystem.
+# Never create directories during application startup on Vercel.
+# Mount assets only when the directory already exists.
 if os.path.isdir(assets_dir):
     app.mount(
         "/assets",
@@ -104,36 +106,65 @@ if os.path.isdir(assets_dir):
         name="assets",
     )
 
+
 @app.get("/")
 async def serve_root():
     index_file = os.path.join(FRONTEND_DIST_DIR, "index.html")
+
     if os.path.isfile(index_file):
         return FileResponse(index_file)
+
     return {
         "status": "online",
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "docs": "/docs",
-        "message": "Frontend build not found. Run 'npm run build' inside frontend/ to compile the UI."
+        "message": (
+            "Backend is running. "
+            "The frontend is deployed separately or its build is unavailable."
+        ),
     }
+
 
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):
-    # Prevent SPA fallback from masking missing API or Swagger documentation routes
-    if full_path.startswith("api") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
+    # Do not let the frontend fallback intercept API or documentation routes.
+    if (
+        full_path == "api"
+        or full_path.startswith("api/")
+        or full_path == "docs"
+        or full_path.startswith("docs/")
+        or full_path == "openapi.json"
+    ):
         from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail=f"API route '/{full_path}' not found")
 
-    # Serve static assets directly if they exist in dist (e.g. favicon.svg, icons.svg)
-    static_file = os.path.abspath(os.path.join(FRONTEND_DIST_DIR, full_path))
-    if static_file.startswith(FRONTEND_DIST_DIR) and os.path.isfile(static_file):
-        return FileResponse(static_file)
+        raise HTTPException(
+            status_code=404,
+            detail=f"API route '/{full_path}' not found",
+        )
 
-    # SPA client-side routing fallback (React Router: /dashboard, /roadmap, /assessment, etc.)
+    # Serve a static file only if the frontend build contains it.
+    requested_file = os.path.abspath(
+        os.path.join(FRONTEND_DIST_DIR, full_path)
+    )
+
+    if (
+        requested_file.startswith(FRONTEND_DIST_DIR + os.sep)
+        and os.path.isfile(requested_file)
+    ):
+        return FileResponse(requested_file)
+
+    # React Router fallback.
     index_file = os.path.join(FRONTEND_DIST_DIR, "index.html")
+
     if os.path.isfile(index_file):
         return FileResponse(index_file)
 
-    return HTMLResponse("<h1>NovaPath AI</h1><p>Frontend build not found. Run <code>npm run build</code> in <code>frontend/</code>.</p>", status_code=404)
-
-Fix Vercel read-only filesystem error
+    return HTMLResponse(
+        """
+        <h1>NovaPath AI Backend</h1>
+        <p>The backend is running, but the frontend is not available here.</p>
+        <p>Visit <a href="/docs">API Documentation</a> to inspect the API.</p>
+        """,
+        status_code=200,
+    )
