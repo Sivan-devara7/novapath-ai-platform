@@ -40,7 +40,10 @@ app.include_router(mentor.router, prefix=settings.API_V1_STR)
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "timestamp": "2026-09-18"}
+    return {
+        "status": "healthy",
+        "timestamp": "2026-09-18",
+    }
 
 @app.get("/api/ai/health")
 async def ai_health():
@@ -81,11 +84,25 @@ async def ai_health():
         return {"ok": False, "reason": f"OmniRoute connection failed: {type(exc).__name__}"}
 
 FRONTEND_DIST_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "frontend",
+        "dist",
+    )
 )
+
 assets_dir = os.path.join(FRONTEND_DIST_DIR, "assets")
-os.makedirs(assets_dir, exist_ok=True)
-app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+# A separately deployed Vercel backend may not contain frontend files.
+# Never create directories inside the deployment filesystem.
+if os.path.isdir(assets_dir):
+    app.mount(
+        "/assets",
+        StaticFiles(directory=assets_dir),
+        name="assets",
+    )
 
 @app.get("/")
 async def serve_root():
@@ -119,3 +136,4 @@ async def serve_spa(full_path: str):
 
     return HTMLResponse("<h1>NovaPath AI</h1><p>Frontend build not found. Run <code>npm run build</code> in <code>frontend/</code>.</p>", status_code=404)
 
+Fix Vercel read-only filesystem error
