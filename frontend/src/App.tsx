@@ -16,6 +16,8 @@ import { Roadmap } from './pages/Roadmap';
 import { ModuleDetail } from './pages/ModuleDetail';
 import { Resume } from './pages/Resume';
 import { Recommendations } from './pages/Recommendations';
+import { Assessment } from './pages/Assessment';
+import { Resources } from './pages/Resources';
 import { Onboarding } from './pages/Onboarding';
 import { GettingStarted } from './pages/GettingStarted';
 import { Login } from './pages/Login';
@@ -50,11 +52,10 @@ export const App: React.FC = () => {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/roadmap" element={<Roadmap />} />
                   <Route path="/roadmap/:moduleId" element={<ModuleDetail />} />
-                  {/* Bookmarking redirects from legacy separate assessment and resources */}
-                  <Route path="/resources" element={<Navigate to="/roadmap" replace />} />
-                  <Route path="/resources/:skillId" element={<Navigate to="/roadmap" replace />} />
-                  <Route path="/assessment" element={<Navigate to="/roadmap" replace />} />
-                  <Route path="/assessment/:skillId" element={<Navigate to="/roadmap" replace />} />
+                  <Route path="/resources" element={<Resources />} />
+                  <Route path="/resources/:skillId" element={<Resources />} />
+                  <Route path="/assessment" element={<Assessment />} />
+                  <Route path="/assessment/:skillId" element={<Assessment />} />
                   <Route path="/resume" element={<Resume />} />
                   <Route path="/recommendations" element={<Recommendations />} />
                   <Route path="/getting-started" element={<GettingStarted />} />

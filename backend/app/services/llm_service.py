@@ -71,13 +71,25 @@ class LLMService:
         if not effective_key:
             raise LLMOfflineError("API key is not configured.")
 
-        url = f"{settings.OMNIROUTE_BASE_URL.rstrip('/')}/chat/completions"
+        # Support both OpenRouter and standard OpenAI/OmniRoute endpoints
+        is_openrouter = effective_key.startswith("sk-or-")
+        if is_openrouter:
+            url = f"{settings.CHATBOX_BASE_URL.rstrip('/')}/chat/completions"
+            effective_model = model if (model and not model.startswith("antigravity/") and model != "auto") else (settings.CHATBOX_MODEL or "openai/gpt-4o-mini")
+        else:
+            url = f"{settings.OMNIROUTE_BASE_URL.rstrip('/')}/chat/completions"
+            effective_model = model
+
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {effective_key}"
         }
+        if is_openrouter:
+            headers["HTTP-Referer"] = settings.FRONTEND_ORIGIN or "http://localhost:5173"
+            headers["X-Title"] = "NovaPath AI Platform"
+
         payload = {
-            "model": model,
+            "model": effective_model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens

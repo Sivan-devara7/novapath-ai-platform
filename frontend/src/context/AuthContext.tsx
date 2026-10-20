@@ -67,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem('vizag_user');
+    localStorage.removeItem('vizag_token');
   };
 
   const updateUser = (updated: Partial<UserProfile>) => {

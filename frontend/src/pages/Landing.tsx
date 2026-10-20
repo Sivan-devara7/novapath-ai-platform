@@ -10,11 +10,10 @@ import {
   TrendingUp,
   Award,
   Terminal,
-  Zap,
   CheckCircle,
   Play
 } from 'lucide-react';
-import { SkillGalaxyHero } from '../components/3d/SkillGalaxyHero';
+import { PlatformShowcase } from '../components/landing/PlatformShowcase';
 import { GlassCard } from '../components/ui/GlassCard';
 import { MagneticButton } from '../components/ui/MagneticButton';
 import { Badge } from '../components/ui/Badge';
@@ -113,14 +112,14 @@ export const Landing: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Signature 3D Skill Galaxy Canvas */}
+        {/* Interactive Architecture & Platform Showcase */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="mt-14"
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="w-full"
         >
-          <SkillGalaxyHero />
+          <PlatformShowcase />
         </motion.div>
       </section>
 

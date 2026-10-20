@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     OMNIROUTE_TIMEOUT_SECONDS: int = 60
 
     # Dedicated Chatbox / Mentor Key (used only for chatbox, isolates other APIs)
-    CHATBOX_API_KEY: str = "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"
+    CHATBOX_API_KEY: str = "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"
     CHATBOX_MODEL: str = "openai/gpt-4o-mini"
     CHATBOX_BASE_URL: str = "https://openrouter.ai/api/v1"
 

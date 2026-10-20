@@ -54,6 +54,7 @@ const EDGES: Array<[number, number]> = [
 export const SkillGalaxyHero: React.FC = () => {
   const mountRef = useRef<HTMLDivElement>(null);
   const [hoveredNode, setHoveredNode] = useState<NodeData | null>(null);
+  const [webGLError, setWebGLError] = useState(false);
   const { themeMeta } = useTheme();
   const light1Ref = useRef<THREE.PointLight | null>(null);
   const light2Ref = useRef<THREE.PointLight | null>(null);
@@ -67,19 +68,26 @@ export const SkillGalaxyHero: React.FC = () => {
     const container = mountRef.current;
     if (!container) return;
 
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    const width = container.clientWidth || 800;
+    const height = container.clientHeight || 500;
 
-    // 1. Scene, Camera, Renderer
+    // 1. Scene, Camera, Renderer with WebGL error safety
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
     camera.position.set(0, 0, 18);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    container.appendChild(renderer.domElement);
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      container.appendChild(renderer.domElement);
+    } catch (e) {
+      console.warn('WebGL initialization failed, using topological fallback:', e);
+      setWebGLError(true);
+      return;
+    }
 
     // 2. Ambient & Directional Lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -246,10 +254,10 @@ export const SkillGalaxyHero: React.FC = () => {
 
     // 8. Animation Loop
     let animationFrameId: number;
-    let clock = new THREE.Clock();
+    const startTime = performance.now();
 
     const animate = () => {
-      const elapsedTime = clock.getElapsedTime();
+      const elapsedTime = (performance.now() - startTime) / 1000;
 
       // Smooth camera / group rotation toward mouse parallax target
       galaxyGroup.rotation.y += (targetRotationY - galaxyGroup.rotation.y) * 0.05;
@@ -295,6 +303,46 @@ export const SkillGalaxyHero: React.FC = () => {
       }
     };
   }, []);
+
+  if (webGLError) {
+    return (
+      <div className="relative h-full min-h-[320px] w-full select-none overflow-hidden rounded-2xl border border-white/[0.08] bg-slate-950/80 p-5 shadow-2xl flex flex-col justify-between">
+        <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-sky-400 animate-pulse" />
+            <span className="text-xs font-bold text-sky-300">Topological Skill Matrix</span>
+          </div>
+          <span className="text-[11px] text-slate-400">High-Performance 2D Mode</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 my-4">
+          {SKILL_NODES.slice(0, 9).map((node) => (
+            <div
+              key={node.id}
+              className={`rounded-xl p-2.5 border transition-all ${
+                node.status === 'completed'
+                  ? 'bg-sky-500/10 border-sky-400/30 text-sky-200'
+                  : node.status === 'in_progress'
+                  ? 'bg-violet-500/10 border-violet-400/30 text-violet-200'
+                  : node.status === 'ready'
+                  ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200'
+                  : 'bg-slate-900/40 border-slate-800 text-slate-400'
+              }`}
+            >
+              <div className="text-[10px] uppercase font-bold text-slate-400">{node.category}</div>
+              <div className="text-xs font-bold text-white truncate mt-0.5">{node.name}</div>
+              <div className="text-[10px] mt-1 capitalize font-medium">{node.status.replace('_', ' ')}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-white/[0.06]">
+          <span>🔵 Cyan: Verified • 🟣 Purple: Focus • 🟢 Green: Ready</span>
+          <span>15 Active Nodes Mapped</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-[550px] w-full select-none overflow-hidden rounded-3xl border border-white/[0.08] bg-[#070b14]/80 shadow-2xl">
