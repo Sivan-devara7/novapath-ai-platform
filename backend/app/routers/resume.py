@@ -6,10 +6,18 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 
 from ..core.database import get_db
-from ..models.db_models import User, Module, UserModuleProgress, ResumeAnalysis
-from ..models.schemas import ResumeAnalysisResponse, BridgeRoadmapResponse, GenerateBridgeRoadmapRequest, BridgeMilestone
+from ..models.db_models import User, Module, UserModuleProgress
+from ..models.schemas import (
+    ResumeAnalysisResponse,
+    BridgeRoadmapResponse,
+    GenerateBridgeRoadmapRequest,
+    BridgeMilestone,
+    JDMatchRequest,
+    JDMatchResponse
+)
 from ..services.ats_service import ats_service
 from ..services.llm_service import llm_service
+from ..services.jd_matcher_service import jd_matcher_service
 
 router = APIRouter(prefix="/resume", tags=["resume"])
 
@@ -285,3 +293,41 @@ async def generate_bridge_roadmap(payload: GenerateBridgeRoadmapRequest):
         return res
     except Exception:
         return fallback
+
+@router.post("/match-jd", response_model=JDMatchResponse)
+async def match_resume_to_jd(payload: JDMatchRequest):
+    """
+    Matches resume text against a specific Job Description (JD).
+    Zero scraping, zero persistence beyond this request.
+    Computes must-have/nice-to-have skill match, experience/education check,
+    TF-IDF semantic similarity, and actionable placement advice.
+    """
+    resume_text = payload.resume_text.strip()
+    jd_text = payload.jd_text.strip()
+    if len(resume_text) < 30:
+        raise HTTPException(status_code=400, detail="Resume text is too brief (minimum 30 characters).")
+    if len(jd_text) < 30:
+        raise HTTPException(status_code=400, detail="Job description text is too brief (minimum 30 characters).")
+    return jd_matcher_service.match_resume_to_jd(resume_text, jd_text)
+
+@router.post("/match-jd-file", response_model=JDMatchResponse)
+async def match_resume_file_to_jd(
+    file: UploadFile = File(...),
+    jd_text: str = Form(...)
+):
+    """
+    Parses uploaded PDF/DOCX/TXT resume and matches against posted Job Description (JD).
+    Zero persistence beyond this request.
+    """
+    jd_clean = jd_text.strip()
+    if len(jd_clean) < 30:
+        raise HTTPException(status_code=400, detail="Job description text is too brief (minimum 30 characters).")
+    try:
+        content = await file.read()
+        extracted_text = ats_service.extract_text_from_file(content, file.filename or "resume.pdf")
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process resume file: {str(e)}")
+
+    return jd_matcher_service.match_resume_to_jd(extracted_text, jd_clean)

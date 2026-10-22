@@ -89,7 +89,9 @@ class ResumeAnalysisResponse(BaseModel):
     formatting_score: int
     skills_match_score: int
     impact_score: int
-    role_fit_score: Optional[float] = 0.0
+    role_fit_score: Optional[float] = 0.0  # Maintained for backwards compatibility
+    role_alignment_score: Optional[float] = 0.0  # Calibrated alignment index (not a probability)
+    role_alignment_note: Optional[str] = "Calibrated alignment index measuring textual congruence with role benchmarks, not a raw Bayesian posterior probability."
     section_score: Optional[float] = 0.0
     extracted_skills: List[str]
     missing_skills: List[str]
@@ -102,8 +104,14 @@ class ResumeAnalysisResponse(BaseModel):
     top_contributing_features: Optional[List[Dict[str, Any]]] = None
     deductions: Optional[List[Dict[str, Any]]] = None
     bullet_improvements: Optional[List[Dict[str, str]]] = None
+    missing_critical_skills: Optional[List[str]] = None
+    missing_bonus_skills: Optional[List[str]] = None
+    personalized_roadmap: Optional[List[Dict[str, Any]]] = None
     target_role: Optional[str] = "AI Engineer"
     raw_text_hash: Optional[str] = None
+    limited_validation: bool = False
+    validation_notes: Optional[str] = None
+    detected_seniority: Optional[str] = "mid"
 
 class RecommendationItem(BaseModel):
     id: str
@@ -155,4 +163,41 @@ class GenerateBridgeRoadmapRequest(BaseModel):
     target_role: str
     current_ats_score: int
     missing_skills: List[str]
-    matched_skills: List[str]
+
+class JDMatchRequest(BaseModel):
+    resume_text: str
+    jd_text: str
+
+class KeywordGapPlacement(BaseModel):
+    keyword: str
+    importance: str  # "Must-Have" or "Nice-to-Have"
+    recommended_section: str
+    placement_tip: str
+
+class ResumeEditSuggestion(BaseModel):
+    priority: str  # "High", "Medium", "Low"
+    category: str
+    action: str
+    before_example: Optional[str] = None
+    after_example: Optional[str] = None
+
+class JDMatchResponse(BaseModel):
+    jd_match_score: int  # 0 to 100
+    semantic_similarity_score: float
+    must_have_score: float
+    nice_to_have_score: float
+    matched_must_haves: List[str]
+    missing_must_haves: List[str]
+    matched_nice_to_haves: List[str]
+    missing_nice_to_haves: List[str]
+    required_years_experience: Optional[int] = None
+    candidate_years_experience: Optional[int] = None
+    experience_status: str
+    required_education: Optional[str] = None
+    candidate_education: Optional[str] = None
+    education_status: str
+    keyword_gaps_with_placement: List[KeywordGapPlacement]
+    actionable_resume_edits: List[ResumeEditSuggestion]
+    scoring_formula_weights: Dict[str, Any]
+    summary: str
+    matched_skills: Optional[List[str]] = None

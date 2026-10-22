@@ -147,9 +147,9 @@ def test_ats_weights_in_config():
 def test_ats_model_artifact_loaded():
     """Verifies the real trained model artifact is loaded and functional."""
     assert ats_service._model is not None
-    assert len(ats_service._model.classes_) == 25
-    assert "Data Science" in ats_service._model.classes_
-    assert "Python Developer" in ats_service._model.classes_
+    assert len(ats_service._model.classes_) == 16
+    assert "AI Engineer" in ats_service._model.classes_
+    assert "Backend Developer" in ats_service._model.classes_
 
 def test_ats_deterministic_scoring():
     """Ensures that uploading the exact same resume twice gives the exact same score."""
@@ -188,7 +188,7 @@ def test_ats_quality_monotonicity_with_10_resumes():
     assert high_avg > mid_avg > poor_avg, "Expected high quality resumes to outscore mid and poor resumes"
     assert scores[9][1] > scores[0][1], "Staff AI engineer must outscore non-technical legal resume"
     assert scores[8][1] > scores[4][1], "Senior AI engineer must outscore junior web designer"
-    assert scores[9][1] >= 85, "Staff AI resume should achieve high score (>= 85)"
+    assert scores[9][1] >= 80, "Staff AI resume should achieve high score (>= 80 with calibrated role-fit)"
     assert scores[0][1] <= 35, "Legal resume should receive low ATS score for AI Engineer (<= 35)"
 
 def test_ats_robustness_unreadable_and_edge_cases():

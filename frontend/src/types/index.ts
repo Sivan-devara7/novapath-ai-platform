@@ -119,8 +119,60 @@ export interface ResumeAnalysisResponse {
   top_contributing_features?: ContributingFeature[];
   deductions?: DeductionItem[];
   bullet_improvements?: Array<{ original: string; improved: string; reason: string }>;
+  missing_critical_skills?: string[];
+  missing_bonus_skills?: string[];
+  personalized_roadmap?: Array<{
+    step: number;
+    topic: string;
+    missing_skills: string[];
+    description: string;
+    resources: Array<{ title: string; url: string; type: string }>;
+    priority: string;
+  }>;
   target_role?: string;
   raw_text_hash?: string;
+  limited_validation?: boolean;
+  validation_notes?: string;
+  detected_seniority?: string;
+  role_alignment_score?: number;
+  role_alignment_note?: string;
+}
+
+export interface KeywordGapPlacement {
+  keyword: string;
+  importance: string;
+  recommended_section: string;
+  placement_tip: string;
+}
+
+export interface ResumeEditSuggestion {
+  priority: string;
+  category: string;
+  action: string;
+  before_example?: string;
+  after_example?: string;
+}
+
+export interface JDMatchResponse {
+  jd_match_score: number;
+  semantic_similarity_score: number;
+  must_have_score: number;
+  nice_to_have_score: number;
+  matched_must_haves: string[];
+  missing_must_haves: string[];
+  matched_nice_to_haves: string[];
+  missing_nice_to_haves: string[];
+  required_years_experience?: number;
+  candidate_years_experience?: number;
+  experience_status: string;
+  required_education?: string;
+  candidate_education?: string;
+  education_status: string;
+  keyword_gaps_with_placement: KeywordGapPlacement[];
+  actionable_resume_edits: ResumeEditSuggestion[];
+  scoring_formula_weights: Record<string, any>;
+  summary: string;
+  matched_skills?: string[];
 }
 
 export interface RecommendationItem {

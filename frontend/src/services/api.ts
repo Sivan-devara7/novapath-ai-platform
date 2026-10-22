@@ -10,7 +10,8 @@ import {
   QuizQuestionItem,
   QuizSubmissionResponse,
   LessonContent,
-  BridgeRoadmapResponse
+  BridgeRoadmapResponse,
+  JDMatchResponse
 } from '../types';
 
 const API_BASE = '/api';
@@ -372,6 +373,34 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Failed to add to roadmap' }));
       throw new Error(err.detail || 'Failed to add to roadmap');
+    }
+    return await res.json();
+  },
+
+  async matchResumeToJD(resumeText: string, jdText: string): Promise<JDMatchResponse> {
+    const res = await fetch(`${API_BASE}/resume/match-jd`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resume_text: resumeText, jd_text: jdText })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'JD Match failed' }));
+      throw new Error(err.detail || 'JD Match failed');
+    }
+    return await res.json();
+  },
+
+  async matchResumeFileToJD(file: File, jdText: string): Promise<JDMatchResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('jd_text', jdText);
+    const res = await fetch(`${API_BASE}/resume/match-jd-file`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'JD Match file upload failed' }));
+      throw new Error(err.detail || 'JD Match file upload failed');
     }
     return await res.json();
   },

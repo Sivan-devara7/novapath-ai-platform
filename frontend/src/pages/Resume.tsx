@@ -22,7 +22,12 @@ import {
   MapPin,
   Calendar,
   Compass,
-  Check
+  Check,
+  Target,
+  Briefcase,
+  FileSearch,
+  ExternalLink,
+  ChevronRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../context/AuthContext';
@@ -32,7 +37,7 @@ import { GlassCard } from '../components/ui/GlassCard';
 import { MagneticButton } from '../components/ui/MagneticButton';
 import { Badge } from '../components/ui/Badge';
 import { SkeletonLoader } from '../components/ui/SkeletonLoader';
-import { ResumeAnalysisResponse, BridgeRoadmapResponse } from '../types';
+import { ResumeAnalysisResponse, BridgeRoadmapResponse, JDMatchResponse } from '../types';
 
 export const Resume: React.FC = () => {
   const location = useLocation();
@@ -40,6 +45,7 @@ export const Resume: React.FC = () => {
   const { updateUser } = useAuth();
   const { t } = useLanguage();
 
+  const [appMode, setAppMode] = useState<'benchmark' | 'jd_match'>('benchmark');
   const [analysis, setAnalysis] = useState<ResumeAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -50,10 +56,16 @@ export const Resume: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'sample' | 'upload' | 'paste'>('sample');
   const [pastedText, setPastedText] = useState('');
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [rawUploadedFile, setRawUploadedFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [bridgeRoadmap, setBridgeRoadmap] = useState<BridgeRoadmapResponse | null>(null);
   const [isGeneratingBridge, setIsGeneratingBridge] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // JD Matcher State
+  const [jdText, setJdText] = useState('');
+  const [jdAnalysis, setJdAnalysis] = useState<JDMatchResponse | null>(null);
+  const [jdLoading, setJdLoading] = useState(false);
 
   const fetchSampleAnalysis = async (role = targetRole) => {
     setLoading(true);
@@ -139,6 +151,7 @@ export const Resume: React.FC = () => {
 
   const handleFileUpload = async (file: File) => {
     setSelectedFileName(file.name);
+    setRawUploadedFile(file);
     setUploading(true);
     setErrorMsg(null);
     try {
@@ -171,6 +184,81 @@ export const Resume: React.FC = () => {
     }
   };
 
+  const loadSampleJD = (roleType: 'backend' | 'fullstack' | 'ml' = 'backend') => {
+    if (roleType === 'backend') {
+      setJdText(`Job Title: Senior Backend Software Engineer
+Company: CloudScale Platforms
+Location: Remote
+
+Basic Qualifications (Required):
+- 4+ years of professional backend software development experience.
+- Bachelor's degree in Computer Science, Software Engineering, or related technical field.
+- Strong proficiency in Python, FastAPI, and PostgreSQL.
+- Experience with Docker containerization and Redis caching.
+- Solid understanding of RESTful API design and CI/CD pipelines.
+
+Preferred Qualifications (Bonus):
+- Experience with Kubernetes and Kafka event streaming.
+- Familiarity with AWS cloud architecture and Terraform.
+- Exposure to GraphQL and Celery task queues.`);
+    } else if (roleType === 'fullstack') {
+      setJdText(`Job Title: Full Stack Developer (React & Node.js)
+Company: WebMatrix Solutions
+Location: Hybrid
+
+Required Skills (Must Have):
+- 2+ years building web applications with React, JavaScript, HTML5, and CSS3.
+- Hands-on experience developing RESTful APIs with Node.js or Python.
+- Proficiency in Git, GitHub, and component-driven architecture.
+- Experience with Docker containerization and client-side state management.
+
+Preferred Skills (Nice to Have):
+- Experience with Next.js, TypeScript, and Tailwind CSS.
+- Familiarity with PostgreSQL or MongoDB databases.`);
+    } else {
+      setJdText(`Job Title: Senior Data Scientist / Machine Learning Engineer
+Company: DeepPulse AI
+Location: Remote
+
+Required Qualifications:
+- 5+ years experience in statistical modeling, machine learning, and predictive analytics.
+- Master's degree or PhD in Statistics, Machine Learning, Data Science, or related field.
+- Deep expertise in Python, PyTorch, Scikit-Learn, Pandas, and NumPy.
+- Experience building RAG pipelines and vector databases (Pinecone, FAISS).
+- Demonstrated track record deploying models to production with Docker and FastAPI.
+
+Preferred Qualifications:
+- Experience with distributed GPU training (DeepSpeed, CUDA).
+- Familiarity with MLOps and Weights & Biases.`);
+    }
+  };
+
+  const handleMatchJD = async () => {
+    if (!jdText.trim() || jdText.trim().length < 30) {
+      setErrorMsg('Please enter or load a job description with at least 30 characters.');
+      return;
+    }
+    setJdLoading(true);
+    setErrorMsg(null);
+    try {
+      let res: JDMatchResponse;
+      if (activeTab === 'upload' && rawUploadedFile) {
+        res = await api.matchResumeFileToJD(rawUploadedFile, jdText);
+      } else {
+        const textToMatch = activeTab === 'paste' && pastedText.trim()
+          ? pastedText
+          : (analysis?.summary_critique ? `Experienced software engineer with competencies in ${analysis.matched_skills.join(', ')}. Accomplished projects in microservices, databases, and containerization.` : 'Software engineer with 4 years experience in Python, FastAPI, Docker, and PostgreSQL.');
+        res = await api.matchResumeToJD(textToMatch, jdText);
+      }
+      setJdAnalysis(res);
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to match resume against job description.');
+    } finally {
+      setJdLoading(false);
+    }
+  };
+
   const handleAddSkillToRoadmap = async (skillName: string) => {
     setAddingSkill(skillName);
     try {
@@ -200,36 +288,94 @@ export const Resume: React.FC = () => {
               <Badge variant="verified">ATS Recruiter Intelligence Engine</Badge>
               <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-medium bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
                 <Info className="h-3 w-3" />
-                ML Role-Fit Blend (Estimate)
+                Role Alignment Index (Estimate)
               </span>
             </div>
             <h1 className="mt-2 text-2xl sm:text-4xl font-extrabold text-white">
               {t('resume_title', 'AI-Powered Resume ATS Audit & Bridge Engine')}
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-slate-300">
-              {t('resume_subtitle', 'Upload or inspect your resume against top tech career tracks')}
+              {t('resume_subtitle', 'Audit your resume against benchmark career tracks or match against any specific job description')}
             </p>
           </div>
 
-          {/* Role Filter */}
-          <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-white/[0.08] bg-slate-900/60 p-1">
-            {['AI Engineer', 'Data Engineer', 'Cybersecurity Analyst', 'Full Stack Developer', 'Cloud & DevOps Engineer'].map((role) => (
-              <button
-                key={role}
-                onClick={() => handleRoleChange(role)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                  targetRole === role
-                    ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-neon-blue'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {role}
-              </button>
-            ))}
+          {/* Role Filter Selector (shown in benchmark mode) */}
+          {appMode === 'benchmark' && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+              <span className="text-xs font-semibold text-slate-400">Target Role:</span>
+              <div className="relative">
+                <select
+                  value={targetRole}
+                  onChange={(e) => handleRoleChange(e.target.value)}
+                  className="rounded-xl border border-white/[0.15] bg-slate-900/90 px-3.5 py-1.5 text-xs font-semibold text-white shadow-neon-blue focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                >
+                  {[
+                    'AI Engineer',
+                    'Frontend Developer',
+                    'Backend Developer',
+                    'Full Stack Developer',
+                    'Data Scientist/ML Engineer',
+                    'Data Analyst',
+                    'Data Engineer',
+                    'Cloud & DevOps Engineer',
+                    'SRE',
+                    'Mobile App Developer',
+                    'Cybersecurity Analyst',
+                    'QA/Test Automation Engineer',
+                    'Software Engineer (generic)',
+                    'Product Manager',
+                    'UI/UX Designer',
+                    'Business Analyst'
+                  ].map((role) => (
+                    <option key={role} value={role} className="bg-slate-900 text-white py-1">
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* High-Level Mode Switcher: Role Benchmark Audit vs Target Job Description Matcher */}
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2 p-1 rounded-2xl border border-white/[0.1] bg-slate-900/60 backdrop-blur-md">
+            <button
+              onClick={() => { setAppMode('benchmark'); setErrorMsg(null); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                appMode === 'benchmark'
+                  ? 'bg-sky-500 text-white shadow-neon-blue'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              16-Role Benchmark Audit
+            </button>
+            <button
+              onClick={() => { setAppMode('jd_match'); setErrorMsg(null); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                appMode === 'jd_match'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+              }`}
+            >
+              <Target className="w-4 h-4 text-emerald-300" />
+              Target Job Description (JD) Matcher
+              <span className="text-[10px] bg-emerald-400/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono">
+                NEW
+              </span>
+            </button>
+          </div>
+
+          <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            {appMode === 'benchmark'
+              ? 'Model evaluates role alignment index; ATS score computed deterministically.'
+              : 'Direct semantic, skill, and requirements matching against your specific job description.'}
           </div>
         </div>
 
-        {/* Input Method Tabs */}
+        {/* Input Method Tabs for Resume Selection */}
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-slate-900/50 p-1">
             <button
@@ -258,10 +404,10 @@ export const Resume: React.FC = () => {
             </button>
           </div>
 
-          {/* Transparent Notice */}
-          <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Kaggle-trained model predicts role fit; ATS score computed server-side.
+          <div className="text-[11px] text-slate-400">
+            {activeTab === 'sample' && 'Using vetted verified student resume profile.'}
+            {activeTab === 'upload' && (selectedFileName ? `Loaded: ${selectedFileName}` : 'Select a PDF/DOCX file.')}
+            {activeTab === 'paste' && 'Paste custom resume text.'}
           </div>
         </div>
 
@@ -400,18 +546,404 @@ export const Resume: React.FC = () => {
           </div>
         )}
 
-        {/* Analysis Results Display */}
-        {loading ? (
-          <div className="mt-12 space-y-6">
-            <SkeletonLoader lines={5} className="h-28" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <SkeletonLoader lines={3} className="h-40" />
-              <SkeletonLoader lines={3} className="h-40" />
-              <SkeletonLoader lines={3} className="h-40" />
+        {/* JD Matcher Input Panel (Shown when appMode === 'jd_match') */}
+        {appMode === 'jd_match' && (
+          <GlassCard glowColor="emerald" className="mt-6 p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-emerald-400" />
+                  <h3 className="text-base font-bold text-white">Target Job Description (JD) Input</h3>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Paste the requirements, qualifications, and responsibilities from any job posting. Zero scraping, zero retention.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] text-slate-400 font-semibold">Load Sample JD:</span>
+                <button
+                  type="button"
+                  onClick={() => loadSampleJD('backend')}
+                  className="px-2.5 py-1 text-[11px] rounded-lg border border-white/[0.1] bg-slate-800/80 text-sky-300 hover:bg-slate-700 transition-all font-semibold"
+                >
+                  Senior Backend
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadSampleJD('fullstack')}
+                  className="px-2.5 py-1 text-[11px] rounded-lg border border-white/[0.1] bg-slate-800/80 text-teal-300 hover:bg-slate-700 transition-all font-semibold"
+                >
+                  Full Stack
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadSampleJD('ml')}
+                  className="px-2.5 py-1 text-[11px] rounded-lg border border-white/[0.1] bg-slate-800/80 text-purple-300 hover:bg-slate-700 transition-all font-semibold"
+                >
+                  Data Science/ML
+                </button>
+              </div>
             </div>
-          </div>
-        ) : analysis ? (
-          <div className="mt-8 space-y-8">
+
+            <div className="mt-4">
+              <textarea
+                value={jdText}
+                onChange={(e) => setJdText(e.target.value)}
+                placeholder="Paste the target job description requirements, qualifications, and role responsibilities here..."
+                rows={7}
+                className="w-full rounded-xl border border-white/[0.12] bg-slate-950/80 p-4 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all resize-y"
+              />
+            </div>
+
+            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Zero persistence: Neither your resume nor the JD is saved beyond this request.</span>
+              </div>
+              <MagneticButton
+                variant="primary"
+                onClick={handleMatchJD}
+                disabled={jdLoading || !jdText.trim()}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20"
+              >
+                {jdLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Target className="w-4 h-4" />}
+                <span>{jdLoading ? 'Analyzing JD Alignment...' : 'Match Resume to Job Description'}</span>
+              </MagneticButton>
+            </div>
+          </GlassCard>
+        )}
+
+        {/* --- DISPLAY MODE 1: TARGET JOB DESCRIPTION MATCH RESULTS --- */}
+        {appMode === 'jd_match' ? (
+          jdLoading ? (
+            <div className="mt-12 space-y-6">
+              <SkeletonLoader lines={5} className="h-28" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <SkeletonLoader lines={4} className="h-44" />
+                <SkeletonLoader lines={4} className="h-44" />
+              </div>
+            </div>
+          ) : jdAnalysis ? (
+            <div className="mt-8 space-y-8">
+              {/* JD Score Overview Banner */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                {/* Main Circular Score (4 cols) */}
+                <GlassCard glowColor="emerald" className="lg:col-span-4 p-8 flex flex-col items-center justify-center text-center">
+                  <div className="relative flex h-40 w-40 items-center justify-center">
+                    <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="40" className="stroke-slate-800" strokeWidth="8" fill="transparent" />
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        className="stroke-emerald-400 transition-all duration-1000 ease-out"
+                        strokeWidth="8"
+                        strokeDasharray={251.2}
+                        strokeDashoffset={251.2 - (251.2 * jdAnalysis.jd_match_score) / 100}
+                        strokeLinecap="round"
+                        fill="transparent"
+                      />
+                    </svg>
+                    <div className="absolute flex flex-col items-center">
+                      <span className="text-4xl font-black text-white">{jdAnalysis.jd_match_score}</span>
+                      <span className="text-[10px] uppercase font-bold text-emerald-400">JD Match / 100</span>
+                    </div>
+                  </div>
+
+                  <h3 className="mt-4 text-base font-bold text-white">Target JD Alignment Score</h3>
+                  <p className="mt-1 text-xs text-slate-300">
+                    Semantic & requirement fit against posted position
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+                    <Badge variant={jdAnalysis.jd_match_score >= 80 ? 'ats_high' : jdAnalysis.jd_match_score >= 50 ? 'verified' : 'in_progress'}>
+                      {jdAnalysis.jd_match_score >= 80 ? 'Top Match Tier' : jdAnalysis.jd_match_score >= 50 ? 'Competitive Match' : 'Substantial Gaps'}
+                    </Badge>
+                    <Badge variant="highlight" className="text-[10px]">
+                      {jdAnalysis.semantic_similarity_score}% Semantic Congruence
+                    </Badge>
+                  </div>
+                </GlassCard>
+
+                {/* 5-Factor JD Match Breakdown (8 cols) */}
+                <GlassCard glowColor="blue" className="lg:col-span-8 p-8 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-base font-bold text-white">JD Requirement Breakdown</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">Weighted blend across technical requirements, experience, and terminology</p>
+                      </div>
+                      <Badge variant="verified" className="text-[10px]">Documented Formula</Badge>
+                    </div>
+
+                    <div className="mt-6 space-y-3.5">
+                      {/* Must-Haves (45%) */}
+                      <div>
+                        <div className="flex justify-between text-xs font-semibold mb-1">
+                          <span className="text-slate-300 flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                            Must-Have Technical Skills ({jdAnalysis.scoring_formula_weights?.must_haves_weight || 45}% weight)
+                          </span>
+                          <span className="text-emerald-400 font-bold">{jdAnalysis.must_have_score}%</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-400 rounded-full transition-all duration-700"
+                            style={{ width: `${jdAnalysis.must_have_score}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Nice-to-Haves (15%) */}
+                      <div>
+                        <div className="flex justify-between text-xs font-semibold mb-1">
+                          <span className="text-slate-300 flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-teal-400"></span>
+                            Preferred / Bonus Skills ({jdAnalysis.scoring_formula_weights?.nice_to_haves_weight || 15}% weight)
+                          </span>
+                          <span className="text-teal-400 font-bold">{jdAnalysis.nice_to_have_score}%</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full bg-teal-400 rounded-full transition-all duration-700"
+                            style={{ width: `${jdAnalysis.nice_to_have_score}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Semantic Similarity (20%) */}
+                      <div>
+                        <div className="flex justify-between text-xs font-semibold mb-1">
+                          <span className="text-slate-300 flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-sky-400"></span>
+                            TF-IDF Semantic Similarity ({jdAnalysis.scoring_formula_weights?.semantic_similarity_weight || 20}% weight)
+                          </span>
+                          <span className="text-sky-400 font-bold">{jdAnalysis.semantic_similarity_score}%</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full bg-sky-400 rounded-full transition-all duration-700"
+                            style={{ width: `${jdAnalysis.semantic_similarity_score}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Experience & Education Alignment (20%) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <div className="p-3 rounded-xl border border-white/[0.08] bg-slate-900/60">
+                          <span className="text-[11px] font-bold text-slate-400 block">Experience Check (10%):</span>
+                          <span className="text-xs text-emerald-300 font-semibold mt-0.5 block">{jdAnalysis.experience_status}</span>
+                        </div>
+                        <div className="p-3 rounded-xl border border-white/[0.08] bg-slate-900/60">
+                          <span className="text-[11px] font-bold text-slate-400 block">Education Check (10%):</span>
+                          <span className="text-xs text-emerald-300 font-semibold mt-0.5 block">{jdAnalysis.education_status}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </GlassCard>
+              </div>
+
+              {/* Requirements Comparison Tags */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Must-Haves Card */}
+                <GlassCard glowColor="emerald" className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      Must-Have Technical Requirements
+                    </h4>
+                    <span className="text-xs font-bold text-emerald-400">
+                      {jdAnalysis.matched_must_haves.length} / {jdAnalysis.matched_must_haves.length + jdAnalysis.missing_must_haves.length} Matched
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-[11px] font-semibold text-emerald-300 uppercase block mb-1.5">Matched Competencies:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {jdAnalysis.matched_must_haves.length > 0 ? (
+                          jdAnalysis.matched_must_haves.map((m) => (
+                            <span key={m} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                              ✓ {m}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-500">No must-have skills matched yet.</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {jdAnalysis.missing_must_haves.length > 0 && (
+                      <div className="pt-2 border-t border-white/[0.06]">
+                        <span className="text-[11px] font-semibold text-rose-300 uppercase block mb-1.5">Missing Must-Haves (Gaps):</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {jdAnalysis.missing_must_haves.map((m) => (
+                            <span key={m} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-500/15 border border-rose-500/30 text-rose-300">
+                              ✗ {m}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </GlassCard>
+
+                {/* Nice-to-Haves Card */}
+                <GlassCard glowColor="blue" className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-teal-400" />
+                      Preferred & Bonus Qualifications
+                    </h4>
+                    <span className="text-xs font-bold text-teal-400">
+                      {jdAnalysis.matched_nice_to_haves.length} / {Math.max(1, jdAnalysis.matched_nice_to_haves.length + jdAnalysis.missing_nice_to_haves.length)} Matched
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-[11px] font-semibold text-teal-300 uppercase block mb-1.5">Bonus Skills Demonstrated:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {jdAnalysis.matched_nice_to_haves.length > 0 ? (
+                          jdAnalysis.matched_nice_to_haves.map((m) => (
+                            <span key={m} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-500/15 border border-teal-500/30 text-teal-300">
+                              ★ {m}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-500">None detected.</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {jdAnalysis.missing_nice_to_haves.length > 0 && (
+                      <div className="pt-2 border-t border-white/[0.06]">
+                        <span className="text-[11px] font-semibold text-amber-300 uppercase block mb-1.5">Additional Preferred Skills:</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {jdAnalysis.missing_nice_to_haves.map((m) => (
+                            <span key={m} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 border border-amber-500/20 text-amber-300">
+                              + {m}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </GlassCard>
+              </div>
+
+              {/* Keyword Placement Advice (Where to Add Gaps) */}
+              {jdAnalysis.keyword_gaps_with_placement.length > 0 && (
+                <GlassCard glowColor="violet" className="p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <FileSearch className="w-5 h-5 text-indigo-400" />
+                    <div>
+                      <h4 className="text-base font-bold text-white">Keyword Gaps & Strategic Placement Advice</h4>
+                      <p className="text-xs text-slate-400 mt-0.5">Where and how to inject missing skills into your resume sections to pass screening</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {jdAnalysis.keyword_gaps_with_placement.map((gap, idx) => (
+                      <div key={idx} className="p-4 rounded-xl border border-white/[0.08] bg-slate-900/60">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-white">{gap.keyword}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            gap.importance === 'Must-Have' ? 'bg-rose-500/20 text-rose-300' : 'bg-amber-500/20 text-amber-300'
+                          }`}>
+                            {gap.importance}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-[11px] text-sky-400 font-semibold flex items-center gap-1">
+                          <ChevronRight className="w-3.5 h-3.5" />
+                          <span>Target Section: {gap.recommended_section}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-300 leading-relaxed">
+                          {gap.placement_tip}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </GlassCard>
+              )}
+
+              {/* Actionable Resume Edits */}
+              {jdAnalysis.actionable_resume_edits.length > 0 && (
+                <GlassCard glowColor="blue" className="p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="w-5 h-5 text-sky-400" />
+                    <div>
+                      <h4 className="text-base font-bold text-white">Actionable Resume Rewrites Tailored to This JD</h4>
+                      <p className="text-xs text-slate-400 mt-0.5">Direct before/after bullet improvements to mirror the employer's vocabulary</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {jdAnalysis.actionable_resume_edits.map((edit, idx) => (
+                      <div key={idx} className="p-4 rounded-xl border border-white/[0.08] bg-slate-900/60">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-white">{edit.action}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            edit.priority === 'High' ? 'bg-rose-500/20 text-rose-300' : 'bg-sky-500/20 text-sky-300'
+                          }`}>
+                            {edit.priority} Priority
+                          </span>
+                        </div>
+                        {edit.before_example && (
+                          <div className="mt-2.5 space-y-1.5 text-xs">
+                            <div className="p-2.5 rounded-lg bg-rose-950/30 border border-rose-500/20 text-rose-200">
+                              <span className="font-bold text-rose-300 block text-[10px] uppercase">Before:</span>
+                              "{edit.before_example}"
+                            </div>
+                            <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-500/20 text-emerald-200">
+                              <span className="font-bold text-emerald-300 block text-[10px] uppercase">After (Optimized):</span>
+                              "{edit.after_example}"
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </GlassCard>
+              )}
+            </div>
+          ) : (
+            <div className="mt-8 text-center p-12 rounded-2xl border border-dashed border-white/[0.15] bg-slate-900/40 text-slate-400">
+              <Target className="w-12 h-12 text-emerald-400 mx-auto mb-3 opacity-80" />
+              <h4 className="text-base font-bold text-white">Ready to Match Against Your Target Job Description</h4>
+              <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                Select your resume above, paste your target job description (or click a sample JD), and click "Match Resume to Job Description".
+              </p>
+            </div>
+          )
+        ) : (
+          /* --- DISPLAY MODE 2: 16-ROLE BENCHMARK AUDIT (EXISTING) --- */
+          loading ? (
+            <div className="mt-12 space-y-6">
+              <SkeletonLoader lines={5} className="h-28" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <SkeletonLoader lines={3} className="h-40" />
+                <SkeletonLoader lines={3} className="h-40" />
+                <SkeletonLoader lines={3} className="h-40" />
+              </div>
+            </div>
+          ) : analysis ? (
+            <div className="mt-8 space-y-8">
+              {/* Benchmark Validation Notice for Roles without Public Datasets */}
+              {analysis.limited_validation && (
+                <div className="flex items-start gap-3.5 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200 shadow-lg shadow-amber-950/20">
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="text-xs leading-relaxed">
+                    <div className="font-semibold text-amber-300 text-sm">Synthetic Benchmark Validation Notice</div>
+                    <div className="text-amber-200/90 mt-1">
+                      {analysis.validation_notes || `This role's model was validated using structured benchmarks (roadmap.sh, O*NET) due to lack of public open-source resume data for ${targetRole}.`}
+                    </div>
+                  </div>
+                </div>
+              )}
+
             {/* Top Score Banner */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
               {/* Main Circular Score (4 cols) */}
@@ -450,7 +982,12 @@ export const Resume: React.FC = () => {
                 <p className="mt-1 text-xs text-slate-300">
                   Targeted role: <strong className="text-sky-300">{targetRole}</strong>
                 </p>
-                <div className="mt-3 flex items-center gap-1.5">
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+                  {analysis.detected_seniority && (
+                    <Badge variant="verified" className="capitalize text-[10px]">
+                      {analysis.detected_seniority} Track
+                    </Badge>
+                  )}
                   <Badge variant={analysis.ats_score >= 80 ? 'ats_high' : analysis.ats_score >= 60 ? 'verified' : 'in_progress'}>
                     {analysis.ats_score >= 80 ? 'Top 10% Applicant Tier' : analysis.ats_score >= 60 ? 'Competitive Applicant Tier' : 'Needs Optimization'}
                   </Badge>
@@ -469,21 +1006,24 @@ export const Resume: React.FC = () => {
                   </div>
 
                   <div className="mt-6 space-y-3.5">
-                    {/* 1. ML Role-Fit Probability (40%) */}
+                    {/* 1. Role Alignment (40%) */}
                     <div>
                       <div className="flex justify-between text-xs font-semibold mb-1">
                         <span className="text-slate-300 flex items-center gap-1.5">
                           <span className="h-1.5 w-1.5 rounded-full bg-sky-400"></span>
-                          ML Role-Fit Probability (40% weight)
+                          Role Alignment (40% weight)
+                          <span className="text-[10px] text-slate-400 font-normal ml-1">
+                            (Calibrated alignment index, not a probability)
+                          </span>
                         </span>
                         <span className="text-sky-400 font-bold">
-                          {analysis.role_fit_score ? `${analysis.role_fit_score}%` : '85.0%'}
+                          {analysis.role_alignment_score ?? analysis.role_fit_score ?? 85.0}%
                         </span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 rounded-full transition-all duration-700"
-                          style={{ width: `${analysis.role_fit_score || 85}%` }}
+                          style={{ width: `${analysis.role_alignment_score ?? analysis.role_fit_score ?? 85}%` }}
                         />
                       </div>
                     </div>
@@ -663,11 +1203,11 @@ export const Resume: React.FC = () => {
                   <h3 className="text-base font-bold text-white">Identified Critical Skill Gaps</h3>
                 </div>
                 <p className="text-xs text-slate-300">
-                  Missing competencies that appear in &gt;75% of candidate requirements for <strong className="text-white">{targetRole}</strong>.
+                  Essential competencies required for <strong className="text-white">{targetRole}</strong>:
                 </p>
 
                 <div className="mt-4 space-y-3">
-                  {analysis.missing_skills.map((skill) => {
+                  {(analysis.missing_critical_skills || analysis.missing_skills).map((skill) => {
                     const isAdded = addedSkills.includes(skill);
                     const isProcessing = addingSkill === skill;
                     return (
@@ -707,6 +1247,25 @@ export const Resume: React.FC = () => {
                     );
                   })}
                 </div>
+
+                {/* Bonus Skills Gap */}
+                {analysis.missing_bonus_skills && analysis.missing_bonus_skills.length > 0 && (
+                  <div className="mt-6 pt-4 border-t border-white/[0.08]">
+                    <span className="text-xs font-semibold text-slate-400 block mb-2">
+                      Recommended Bonus Skills to Stand Out:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {analysis.missing_bonus_skills.slice(0, 8).map((bSkill) => (
+                        <span
+                          key={bSkill}
+                          className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-[11px] font-medium text-indigo-300"
+                        >
+                          +{bSkill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </GlassCard>
 
               {/* Matched Verified Skills (6 cols) */}
@@ -835,6 +1394,58 @@ export const Resume: React.FC = () => {
                         </div>
                       ))}
                     </div>
+                  ) : analysis.personalized_roadmap && analysis.personalized_roadmap.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {analysis.personalized_roadmap.map((topicItem) => (
+                        <div
+                          key={topicItem.step}
+                          className="rounded-xl border border-indigo-500/20 bg-slate-900/60 p-4 flex flex-col justify-between hover:border-indigo-400/40 transition-all"
+                        >
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-bold text-indigo-400 border border-indigo-400/30">
+                                {topicItem.step}
+                              </span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                topicItem.priority === 'Critical'
+                                  ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                                  : 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
+                              }`}>
+                                {topicItem.priority}
+                              </span>
+                            </div>
+                            <h4 className="text-sm font-bold text-white mb-1.5">{topicItem.topic}</h4>
+                            <p className="text-xs text-slate-300 leading-relaxed mb-3">
+                              {topicItem.description}
+                            </p>
+                            <div className="mb-3 flex flex-wrap gap-1">
+                              {topicItem.missing_skills.map((s) => (
+                                <span key={s} className="rounded bg-slate-800/80 px-1.5 py-0.5 text-[10px] text-slate-300">
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          {topicItem.resources && topicItem.resources.length > 0 && (
+                            <div className="pt-2 border-t border-white/[0.06] space-y-1">
+                              <span className="text-[10px] font-semibold text-slate-400 block">Curated Free Resources:</span>
+                              {topicItem.resources.map((res, rIdx) => (
+                                <a
+                                  key={rIdx}
+                                  href={res.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] text-sky-400 hover:text-sky-300 hover:underline block truncate"
+                                >
+                                  ↗ {res.title}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {analysis.missing_skills.slice(0, 3).map((skill, i) => (
@@ -875,8 +1486,11 @@ export const Resume: React.FC = () => {
               </GlassCard>
             </div>
           </div>
-        ) : null}
+        ) : null
+        )}
       </div>
     </div>
   );
 };
+
+export default Resume;
